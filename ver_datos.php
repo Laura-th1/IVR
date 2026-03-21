@@ -1,5 +1,5 @@
 <?php
-require_once "config/db.php";
+require_once "config/bd.php";
 
 $result = pg_query($conn, "SELECT * FROM respuestas");
 
