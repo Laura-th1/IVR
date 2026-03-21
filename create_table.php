@@ -10,7 +10,7 @@ if (!$conn) {
     die("Error de conexión");
 }
 
-$sql = "CREATE TABLE respuestas (
+$sql = "CREATE TABLE IF NOT EXISTS respuestas (
     id SERIAL PRIMARY KEY,
     telefono VARCHAR(20),
     pregunta VARCHAR(255),
