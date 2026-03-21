@@ -3,6 +3,9 @@ require_once "../config/bd.php";
 
 header("Content-Type: text/xml");
 
+//debug temporal
+file_put_contents("log.txt", print_r($_POST, true));
+
 $telefono = $_POST['From'] ?? '';
 $respuesta = $_POST['SpeechResult'] ?? '';
 $step = $_GET['step'] ?? 1;
@@ -26,7 +29,13 @@ if ($step == 1) {
     pg_query($conn, "INSERT INTO respuestas (telefono, pregunta, respuesta)
                      VALUES ('$telefono', 'Edad', '$respuesta')");
 
-    echo "<Say voice='Polly.Lupe'>Gracias. Tus datos han sido guardados.</Say>";
+    echo "<Say voice='Polly.Lupe'>Gracias. Tus datos han sido guardados correctamente.</Say>";
+}
+
+if (empty($respuesta)) {
+    echo "<Say voice='Polly.Lupe'>No entendí tu respuesta. Intenta nuevamente por favor.</Say>";
+    echo "<Redirect>https://ivr-3knv.onrender.com/controllers/voice.php</Redirect>";
+    exit;
 }
 
 echo "</Response>";
