@@ -86,10 +86,10 @@ if ($step == 1) {
         // 🔐 VARIABLES (usa ENV en Render en producción)
         $accountSid   = getenv("TWILIO_ACCOUNT_SID");
         $authToken    = getenv("TWILIO_AUTH_TOKEN");
-        $twilioNumber = getenv("TWILIO_NUMBER");
-        $miNumero     = "12393159677";
+        $twilioNumber = "+18149139940";
+        $miNumero     = "+12393159677";
 
-        $mensaje = "Nuevo registro:\nTelefono: $telefono\nNombre: $nombre\nEdad: $edad";
+        $mensaje = "Sent from your Twilio trial account\nTelefono: $telefono\nNombre: $nombre\nEdad: $edad";
 
         $url = "https://api.twilio.com/2010-04-01/Accounts/$accountSid/Messages.json";
 
@@ -124,10 +124,5 @@ if ($step == 1) {
     echo "<Say voice='Polly.Lupe'>Paso no válido.</Say>";
 }
 
-file_put_contents("sms_debug.txt", 
-    "HTTP: $httpCode\n" .
-    "RESPONSE: $smsResponse\n" .
-    "ERROR: $curlError\n"
-);
 
 echo "</Response>";
