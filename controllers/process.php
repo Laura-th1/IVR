@@ -47,7 +47,25 @@ if ($step == 1) {
     if (!$result) {
         echo "<Say voice='Polly.Lupe'>Error al guardar edad.</Say>";
     } else {
+<<<<<<< HEAD
         echo "<Say voice='Polly.Lupe'>Gracias. Tus datos han sido guardados correctamente.</Say>";
+=======
+    $edad = $respuesta;
+
+    $queryNombre = "SELECT respuesta FROM respuestas 
+                    WHERE telefono = '" . pg_escape_string($telefono) . "' 
+                    AND pregunta = 'Nombre'
+                    ORDER BY fecha DESC
+                    LIMIT 1";
+
+    $resultNombre = pg_query($conn, $queryNombre);
+
+    $nombre = "Desconocido";
+
+    if ($resultNombre && pg_num_rows($resultNombre) > 0) {
+        $filaNombre = pg_fetch_assoc($resultNombre);
+        $nombre = $filaNombre['respuesta'];
+>>>>>>> 4a73ec080335003c95d5e3cad01d664cc8a6b4f5
     }
 }
 
