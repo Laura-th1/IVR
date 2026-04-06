@@ -4,7 +4,6 @@ require_once "../config/bd.php";
 header("Content-Type: text/xml");
 
 //debug temporal
-
 @file_put_contents("log.txt", print_r($_POST, true) . "\n--- " . date('Y-m-d H:i:s') . " ---\n", FILE_APPEND);
 
 $telefono = $_POST['From'] ?? '';
@@ -24,7 +23,6 @@ echo "<Response>";
 if ($step == 1) {
 
     // Guardar nombre
-   
     $query = "INSERT INTO respuestas (telefono, pregunta, respuesta) VALUES ('" . pg_escape_string($telefono) . "', 'Nombre', '" . pg_escape_string($respuesta) . "')";
     $result = pg_query($conn, $query);
     
@@ -40,15 +38,62 @@ if ($step == 1) {
 } elseif ($step == 2) {
 
     // Guardar edad
-   
     $query = "INSERT INTO respuestas (telefono, pregunta, respuesta) VALUES ('" . pg_escape_string($telefono) . "', 'Edad', '" . pg_escape_string($respuesta) . "')";
     $result = pg_query($conn, $query);
     
     if (!$result) {
         echo "<Say voice='Polly.Lupe'>Error al guardar edad.</Say>";
     } else {
-        echo "<Say voice='Polly.Lupe'>Gracias. Tus datos han sido guardados correctamente.</Say>";
+    $edad = $respuesta;
+
+    $queryNombre = "SELECT respuesta FROM respuestas 
+                    WHERE telefono = '" . pg_escape_string($telefono) . "' 
+                    AND pregunta = 'Nombre'
+                    ORDER BY fecha DESC
+                    LIMIT 1";
+
+    $resultNombre = pg_query($conn, $queryNombre);
+
+    $nombre = "Desconocido";
+
+    if ($resultNombre && pg_num_rows($resultNombre) > 0) {
+        $filaNombre = pg_fetch_assoc($resultNombre);
+        $nombre = $filaNombre['respuesta'];
     }
+
+    $accountSid = "test";
+    $authToken = "test";
+    $twilioNumber = "+18149139940";
+    $miNumero = "+12393159677";
+
+    $mensaje = "Nuevo registro:\nTelefono: $telefono\nNombre: $nombre\nEdad: $edad";
+
+    $url = "https://api.twilio.com/2010-04-01/Accounts/$accountSid/Messages.json";
+
+    $data = http_build_query([
+        "From" => $twilioNumber,
+        "To" => $miNumero,
+        "Body" => $mensaje
+    ]);
+
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_USERPWD, $accountSid . ":" . $authToken);
+
+    $smsResponse = curl_exec($ch);
+$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+$curlError = curl_error($ch);
+curl_close($ch);
+
+if ($curlError) {
+    echo "<Say voice='Polly.Lupe'>Tus datos fueron guardados, pero hubo un error al enviar el mensaje.</Say>";
+} elseif ($httpCode == 201) {
+    echo "<Say voice='Polly.Lupe'>Tus datos fueron guardados y el mensaje fue enviado correctamente.</Say>";
+} else {
+    echo "<Say voice='Polly.Lupe'>Tus datos fueron guardados, pero el mensaje no pudo enviarse.</Say>";
+}
 }
 
 echo "</Response>";
