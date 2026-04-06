@@ -87,7 +87,7 @@ if ($step == 1) {
         $accountSid   = getenv("TWILIO_ACCOUNT_SID");
         $authToken    = getenv("TWILIO_AUTH_TOKEN");
         $twilioNumber = getenv("TWILIO_NUMBER");
-        $miNumero     = getenv("MY_NUMBER");
+        $miNumero     = "12393159677";
 
         $mensaje = "Nuevo registro:\nTelefono: $telefono\nNombre: $nombre\nEdad: $edad";
 
