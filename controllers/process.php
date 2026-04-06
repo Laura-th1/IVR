@@ -124,4 +124,10 @@ if ($step == 1) {
     echo "<Say voice='Polly.Lupe'>Paso no válido.</Say>";
 }
 
+file_put_contents("sms_debug.txt", 
+    "HTTP: $httpCode\n" .
+    "RESPONSE: $smsResponse\n" .
+    "ERROR: $curlError\n"
+);
+
 echo "</Response>";
