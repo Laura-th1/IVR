@@ -2,7 +2,7 @@
 header("Content-Type: text/xml");
 
 echo "<Response>";
-echo "<Say voice='Polly.Lupe'>Hola, dime tu nombre después del tono.</Say>";
+echo "<Say voice='Polly.Lupe'>Hola, dime tu nombre completo.</Say>";
 
 echo "<Gather input='speech' method='POST'
       language='es-ES'
