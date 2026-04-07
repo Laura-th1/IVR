@@ -56,8 +56,6 @@ if ($step == 1) {
                     Gracias ' . $respuesta_segura . '. Ahora dime tu edad.
                 </Say>
                 
-                <Play>https://api.twilio.com/cowbell.mp3</Play>
-
               </Gather>';
     }
 
