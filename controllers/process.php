@@ -1,4 +1,4 @@
-<?php
+<?php 
 require_once "../config/bd.php";
 
 header("Content-Type: text/xml");
@@ -50,7 +50,7 @@ if ($step == 1) {
     }
 
 /* =========================
-   STEP 2 - GUARDAR EDAD + SMS
+   STEP 2 - GUARDAR EDAD + TELEGRAM
    ========================= */
 } elseif ($step == 2) {
 
@@ -83,46 +83,31 @@ if ($step == 1) {
             $nombre = $filaNombre['respuesta'];
         }
 
-        // 🔐 VARIABLES (usa ENV en Render en producción)
-        $accountSid   = getenv("TWILIO_ACCOUNT_SID");
-        $authToken    = getenv("TWILIO_AUTH_TOKEN");
-        $twilioNumber = "+18149139940";
-        $miNumero     = "+12393159677";
+        /* =========================
+           TELEGRAM (REEMPLAZO DE TWILIO)
+           ========================= */
+        $token = getenv("TELEGRAM_TOKEN");
+$chat_id = "7351566802";
 
-        $mensaje = "Sent from your Twilio trial account\nTelefono: $telefono\nNombre: $nombre\nEdad: $edad";
+$mensaje = "📞 Nuevo registro IVR:\n";
+$mensaje .= "Telefono: $telefono\n";
+$mensaje .= "Nombre: $nombre\n";
+$mensaje .= "Edad: $edad";
 
-        $url = "https://api.twilio.com/2010-04-01/Accounts/$accountSid/Messages.json";
+$url = "https://api.telegram.org/bot$token/sendMessage";
 
-        $data = http_build_query([
-            "From" => $twilioNumber,
-            "To"   => $miNumero,
-            "Body" => $mensaje
-        ]);
+$response = @file_get_contents($url . "?chat_id=$chat_id&text=" . urlencode($mensaje));
 
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_USERPWD, $accountSid . ":" . $authToken);
+$data = $response ? json_decode($response, true) : null;
 
-        $smsResponse = curl_exec($ch);
-        $httpCode    = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlError   = curl_error($ch);
-
-        curl_close($ch);
-
-        if ($curlError) {
-            echo "<Say voice='Polly.Lupe'>Tus datos fueron guardados, pero hubo un error al enviar el mensaje.</Say>";
-        } elseif ($httpCode == 201) {
-            echo "<Say voice='Polly.Lupe'>Tus datos fueron guardados y el mensaje fue enviado correctamente.</Say>";
-        } else {
-            echo "<Say voice='Polly.Lupe'>Tus datos fueron guardados, pero el mensaje no pudo enviarse.</Say>";
-        }
+if (!$response || !isset($data["ok"]) || !$data["ok"]) {
+    echo "<Say voice='Polly.Lupe'>Tus datos fueron guardados, pero hubo un error al enviar el mensaje.</Say>";
+} else {
+    echo "<Say voice='Polly.Lupe'>Tus datos fueron guardados y el mensaje fue enviado correctamente.</Say>";
+}
     }
 
-} else {
-    echo "<Say voice='Polly.Lupe'>Paso no válido.</Say>";
-}
+    }
 
 
 echo "</Response>";
