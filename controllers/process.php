@@ -87,7 +87,7 @@ if ($step == 1) {
            TELEGRAM (REEMPLAZO DE TWILIO)
            ========================= */
         $token = getenv("TELEGRAM_TOKEN");
-$chat_id = "7050620400";
+$chat_id = "-4994123276"; // Reemplaza con tu chat ID
 
 $mensaje = "📞 Nuevo registro IVR:\n";
 $mensaje .= "Telefono: $telefono\n";
