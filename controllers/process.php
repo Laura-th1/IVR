@@ -53,8 +53,10 @@ if ($step == 1) {
                 action="https://ivr-3knv.onrender.com/controllers/process.php?step=2">
 
                 <Say voice="Polly.Lupe">
-                    Gracias ' . $respuesta_segura . '. Ahora dime tu edad en números, por ejemplo, veinte o veinticinco.
+                    Gracias ' . $respuesta_segura . '. Ahora dime tu edad.
                 </Say>
+                
+                <Play>https://api.twilio.com/cowbell.mp3</Play>
 
               </Gather>';
     }
