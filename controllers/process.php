@@ -1,22 +1,17 @@
-<?php 
+<?php
 require_once "../config/bd.php";
 
 header("Content-Type: text/xml");
 
-// Debug temporal
+//debug temporal
+
 @file_put_contents("log.txt", print_r($_POST, true) . "\n--- " . date('Y-m-d H:i:s') . " ---\n", FILE_APPEND);
 
-$telefono  = $_POST['From'] ?? '';
-$respuesta = trim($_POST['SpeechResult'] ?? '');
-$step      = $_GET['step'] ?? 1;
+$telefono = $_POST['From'] ?? '';
+$respuesta = $_POST['SpeechResult'] ?? '';
+$step = $_GET['step'] ?? 1;
 
-// Validar conexión
-if (!$conn) {
-    echo "<Response><Say>Error de conexión con la base de datos.</Say></Response>";
-    exit;
-}
 
-// Validar respuesta vacía
 if (empty($respuesta)) {
     echo "<Response>";
     echo "<Say voice='Polly.Lupe'>No entendí tu respuesta. Intenta nuevamente por favor.</Say>";
@@ -25,63 +20,42 @@ if (empty($respuesta)) {
     exit;
 }
 
-// Sanitizar para XML
-$respuesta_segura = htmlspecialchars($respuesta);
+
 
 echo "<Response>";
 
-/* =========================
-   STEP 1 - GUARDAR NOMBRE
-   ========================= */
+
+
 if ($step == 1) {
 
-    $query = "INSERT INTO respuestas (telefono, pregunta, respuesta) 
-              VALUES ($1, $2, $3)";
+    // Guardar nombre
+   
+    $query = "INSERT INTO respuestas (telefono, pregunta, respuesta) VALUES ('" . pg_escape_string($telefono) . "', 'Nombre', '" . pg_escape_string($respuesta) . "')";
+    $result = pg_query($conn, $query);
     
-    $result = pg_query_params($conn, $query, [$telefono, 'Nombre', $respuesta]);
-
     if (!$result) {
         echo "<Say voice='Polly.Lupe'>Error al guardar. Intenta nuevamente.</Say>";
     } else {
-        echo "<Gather input='speech' method='POST' timeout='5'
-              action='https://ivr-3knv.onrender.com/controllers/process.php?step=2'>
-                <Say voice='Polly.Lupe'>Gracias $respuesta_segura. Ahora dime tu edad.</Say>
-              </Gather>";
+        echo "<Say voice='Polly.Lupe'>Gracias $respuesta. Ahora dime tu edad.</Say>";
     }
 
-/* =========================
-   STEP 2 - GUARDAR EDAD + TELEGRAM
-   ========================= */
+    echo "<Gather input='speech' method='POST' timeout='5'
+          action='https://ivr-3knv.onrender.com/controllers/process.php?step=2'></Gather>";
+
 } elseif ($step == 2) {
 
     // Guardar edad
-    $query = "INSERT INTO respuestas (telefono, pregunta, respuesta) 
-              VALUES ($1, $2, $3)";
+   
+    $query = "INSERT INTO respuestas (telefono, pregunta, respuesta) VALUES ('" . pg_escape_string($telefono) . "', 'Edad', '" . pg_escape_string($respuesta) . "')";
+    $result = pg_query($conn, $query);
     
-    $result = pg_query_params($conn, $query, [$telefono, 'Edad', $respuesta]);
-
     if (!$result) {
         echo "<Say voice='Polly.Lupe'>Error al guardar edad.</Say>";
-    
-    } else {
+  
+  }      } else {
+        echo "<Say voice='Polly.Lupe'>Gracias. Tus datos han sido guardados correctamente.</Say>";
+    }
 
-        $edad = $respuesta;
-
-        // Obtener nombre
-        $queryNombre = "SELECT respuesta FROM respuestas 
-                        WHERE telefono = $1 
-                        AND pregunta = 'Nombre'
-                        ORDER BY fecha DESC
-                        LIMIT 1";
-
-        $resultNombre = pg_query_params($conn, $queryNombre, [$telefono]);
-
-        $nombre = "Desconocido";
-
-        if ($resultNombre && pg_num_rows($resultNombre) > 0) {
-            $filaNombre = pg_fetch_assoc($resultNombre);
-            $nombre = $filaNombre['respuesta'];
-        }
 
         /* =========================
            TELEGRAM (REEMPLAZO DE TWILIO)
@@ -104,10 +78,15 @@ if (!$response || !isset($data["ok"]) || !$data["ok"]) {
     echo "<Say voice='Polly.Lupe'>Tus datos fueron guardados, pero hubo un error al enviar el mensaje.</Say>";
 } else {
     echo "<Say voice='Polly.Lupe'>Tus datos fueron guardados y el mensaje fue enviado correctamente.</Say>";
-}
+
+
     }
 
-    }
-
-
+    
 echo "</Response>";
+
+
+
+
+
+
