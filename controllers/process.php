@@ -20,7 +20,7 @@ if (!$conn) {
 if (empty($respuesta)) {
     echo "<Response>";
     echo "<Say voice='Polly.Lupe'>No entendí tu respuesta. Intenta nuevamente por favor.</Say>";
-    echo "<Redirect>https://ivr-3knv.onrender.com/controllers/voice.php</Redirect>";
+    echo "<Redirect>https://ivr-3knv.onrender.com/controllers/process.php?step=$step</Redirect>";
     echo "</Response>";
     exit;
 }
@@ -48,34 +48,63 @@ if ($step == 1) {
                 input="speech" 
                 language="es-ES"
                 speechTimeout="auto"
-                hints="1,2,3,4,5,6,7,8,9,10,20,30,40,50,60,70,80,90,100"
+                hints="1,2,3,4,5,6,7,8,9,10,12,15,20"
                 method="POST"
                 action="https://ivr-3knv.onrender.com/controllers/process.php?step=2">
 
                 <Say voice="Polly.Lupe">
-                    Gracias ' . $respuesta_segura . '. Ahora dime tu edad.
+                    Gracias ' . $respuesta_segura . '. Para cuántas personas es la reserva.
                 </Say>
                 
               </Gather>';
     }
 
 /* =========================
-   STEP 2 - GUARDAR EDAD + TELEGRAM
+   STEP 2 - GUARDAR PERSONAS
    ========================= */
 } elseif ($step == 2) {
 
-    // Guardar edad
     $query = "INSERT INTO respuestas (telefono, pregunta, respuesta) 
               VALUES ($1, $2, $3)";
     
-    $result = pg_query_params($conn, $query, [$telefono, 'Edad', $respuesta]);
+    $result = pg_query_params($conn, $query, [$telefono, 'Personas', $respuesta]);
 
     if (!$result) {
-        echo "<Say voice='Polly.Lupe'>Error al guardar edad.</Say>";
+        echo "<Say voice='Polly.Lupe'>Error al guardar la cantidad de personas.</Say>";
     
     } else {
 
-        $edad = $respuesta;
+        echo '<Gather 
+                input="speech" 
+                language="es-ES"
+                speechTimeout="auto"
+                method="POST"
+                action="https://ivr-3knv.onrender.com/controllers/process.php?step=3">
+
+                <Say voice="Polly.Lupe">
+                    Perfecto. Qué día y a qué hora le gustaría hacer la reserva.
+                </Say>
+                
+              </Gather>';
+    }
+
+/* =========================
+   STEP 3 - GUARDAR FECHA/HORA + TELEGRAM
+   ========================= */
+} elseif ($step == 3) {
+
+    // Guardar fecha y hora
+    $query = "INSERT INTO respuestas (telefono, pregunta, respuesta) 
+              VALUES ($1, $2, $3)";
+    
+    $result = pg_query_params($conn, $query, [$telefono, 'FechaHora', $respuesta]);
+
+    if (!$result) {
+        echo "<Say voice='Polly.Lupe'>Error al guardar la fecha y hora.</Say>";
+    
+    } else {
+
+        $fechaHora = $respuesta;
 
         // Obtener nombre
         $queryNombre = "SELECT respuesta FROM respuestas 
@@ -93,16 +122,33 @@ if ($step == 1) {
             $nombre = $filaNombre['respuesta'];
         }
 
+        // Obtener personas
+        $queryPersonas = "SELECT respuesta FROM respuestas 
+                          WHERE telefono = $1 
+                          AND pregunta = 'Personas'
+                          ORDER BY fecha DESC
+                          LIMIT 1";
+
+        $resultPersonas = pg_query_params($conn, $queryPersonas, [$telefono]);
+
+        $personas = "Desconocido";
+
+        if ($resultPersonas && pg_num_rows($resultPersonas) > 0) {
+            $filaPersonas = pg_fetch_assoc($resultPersonas);
+            $personas = $filaPersonas['respuesta'];
+        }
+
         /* =========================
            TELEGRAM
            ========================= */
         $token = getenv("TELEGRAM_TOKEN");
         $chat_id = "-4994123276";
 
-        $mensaje = "📞 Nuevo registro IVR:\n";
+        $mensaje = "📞 Nueva reserva By Wifer:\n";
         $mensaje .= "Telefono: $telefono\n";
         $mensaje .= "Nombre: $nombre\n";
-        $mensaje .= "Edad: $edad";
+        $mensaje .= "Personas: $personas\n";
+        $mensaje .= "Fecha y hora: $fechaHora";
 
         $url = "https://api.telegram.org/bot$token/sendMessage";
 
@@ -111,9 +157,9 @@ if ($step == 1) {
         $data = $response ? json_decode($response, true) : null;
 
         if (!$response || !isset($data["ok"]) || !$data["ok"]) {
-            echo "<Say voice='Polly.Lupe'>Tus datos fueron guardados, pero hubo un error al enviar el mensaje.</Say>";
+            echo "<Say voice='Polly.Lupe'>Su reserva fue completada, pero hubo un error al enviar la notificación.</Say>";
         } else {
-            echo "<Say voice='Polly.Lupe'>Tus datos fueron guardados y el mensaje fue enviado correctamente.</Say>";
+            echo "<Say voice='Polly.Lupe'>Ok, su reserva ha sido completada. Gracias por llamar a By Wifer.</Say>";
         }
     }
 
@@ -122,3 +168,4 @@ if ($step == 1) {
 }
 
 echo "</Response>";
+?>
