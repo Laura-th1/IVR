@@ -1,6 +1,9 @@
 <?php 
 require_once "../config/bd.php";
 
+// Establecer zona horaria
+date_default_timezone_set('America/Mexico_City');
+
 header("Content-Type: text/xml");
 
 // Debug temporal
@@ -142,14 +145,21 @@ foreach ($dias as $dia) {
 $horaFormateada = "";
 
 if (preg_match('/(\d{1,2})(:\d{2})?\s?(am|pm)?/i', $texto, $match)) {
-    $hora = $match[1];
+    $hora = (int)$match[1];
     $min = isset($match[2]) ? $match[2] : ":00";
     $ampm = strtolower($match[3] ?? "");
 
-    if ($ampm == "pm" && $hora > 12) {
-        $hora += 12;
-    } elseif ($ampm == "am" && $hora <= 12) {
-        $hora = 0;
+    if ($ampm == "pm") {
+        if ($hora != 12) {
+            $hora += 12;
+        }
+    } elseif ($ampm == "am") {
+        if ($hora == 12) {
+            $hora = 0;
+        }
+    } elseif (empty($ampm)) {
+        // Si no se especifica am/pm, asumir 24 horas
+        // No hacer cambios
     }
 
     $horaFormateada = sprintf("%02d%s", $hora, $min);
