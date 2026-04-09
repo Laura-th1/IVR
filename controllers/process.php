@@ -104,7 +104,69 @@ if ($step == 1) {
     
     } else {
 
-        $fechaHora = $respuesta;
+// =========================
+// PROCESAMIENTO Y COMANDO FECHA
+// =========================
+$texto = strtolower($respuesta);
+$fecha = new DateTime();
+
+// =========================
+// 1. PALABRAS CLAVE
+// =========================
+if (strpos($texto, "mañana") !== false) {
+    $fecha->modify("+1 day");
+} elseif (strpos($texto, "pasado mañana") !== false) {
+    $fecha->modify("+2 day");
+} elseif (strpos($texto, "hoy") !== false) {
+    // se queda igual
+}
+
+// =========================
+// 2. DÍAS DE LA SEMANA
+// =========================
+$dias = [
+    "lunes", "martes", "miércoles", "miercoles",
+    "jueves", "viernes", "sábado", "sabado", "domingo"
+];
+
+foreach ($dias as $dia) {
+    if (strpos($texto, $dia) !== false) {
+        $fecha->modify("next $dia");
+        break;
+    }
+}
+
+// =========================
+// 3. EXTRAER HORA
+// =========================
+$horaFormateada = "";
+
+if (preg_match('/(\d{1,2})(:\d{2})?\s?(am|pm)?/i', $texto, $match)) {
+    $hora = $match[1];
+    $min = isset($match[2]) ? $match[2] : ":00";
+    $ampm = strtolower($match[3] ?? "");
+
+    if ($ampm == "pm" && $hora < 12) {
+        $hora += 12;
+    } elseif ($ampm == "am" && $hora == 12) {
+        $hora = 0;
+    }
+
+    $horaFormateada = sprintf("%02d%s", $hora, $min);
+}
+
+// =========================
+// 4. FORMATO FINAL
+// =========================
+$fechaFinal = $fecha->format("d/m/y");
+
+if ($horaFormateada) {
+    $fechaHora = $fechaFinal . " - " . date("h:i A", strtotime($horaFormateada));
+} else {
+    $fechaHora = $fechaFinal;
+}
+
+
 
         // Obtener nombre
         $queryNombre = "SELECT respuesta FROM respuestas 
