@@ -146,9 +146,9 @@ if (preg_match('/(\d{1,2})(:\d{2})?\s?(am|pm)?/i', $texto, $match)) {
     $min = isset($match[2]) ? $match[2] : ":00";
     $ampm = strtolower($match[3] ?? "");
 
-    if ($ampm == "pm" && $hora < 12) {
+    if ($ampm == "pm" && $hora > 12) {
         $hora += 12;
-    } elseif ($ampm == "am" && $hora == 12) {
+    } elseif ($ampm == "am" && $hora <= 12) {
         $hora = 0;
     }
 
