@@ -187,31 +187,33 @@ if ($step == 1) {
     
     } else {
 
-
-    // =========================
-// IA PARA PROCESAR FECHA
+// =========================
+// IA PARA PROCESAR TODO
 // =========================
 $apiKey = getenv("OPENAI_API_KEY");
 
-$prompt = "Convierta este texto en una fecha y hora exacta en formato dd/mm/yy HH:MM (24 horas).
+$prompt = "Extrae la información de esta reserva.
 
 Texto: \"$respuesta\"
 
-Instrucciones estrictas:
-- Responda ÚNICAMENTE con un objeto JSON válido.
-- El objeto debe contener solo la clave \"fecha_hora\".
-- El valor debe tener formato dd/mm/yy HH:MM.
-- No agregue texto, explicaciones, ni mensajes adicionales.
-- Si no puede convertirlo, devuelva {\"fecha_hora\":\"\"}.
+Devuelve SOLO JSON válido con esta estructura:
+{
+  \"nombre\": \"\",
+  \"personas\": \"\",
+  \"fecha_hora\": \"\"
+}
 
-Ejemplo exacto de salida:
-{\"fecha_hora\":\"11/04/26 16:00\"}";
+Reglas:
+- fecha_hora formato: dd/mm/yy HH:MM (24h)
+- Si dice 'hoy' o 'mañana', calcula la fecha real
+- personas debe ser número (no texto)
+- No expliques nada";
 
 $dataIA = [
     "model" => "gpt-4o-mini",
     "temperature" => 0,
     "messages" => [
-        ["role" => "system", "content" => "Eres un asistente que procesa reservas y devuelve solo JSON."],
+        ["role" => "system", "content" => "Procesa reservas y devuelve JSON limpio."],
         ["role" => "user", "content" => $prompt]
     ]
 ];
@@ -234,12 +236,31 @@ $resultIA = json_decode($responseIA, true);
 
 $contenido = $resultIA["choices"][0]["message"]["content"] ?? "{}";
 
+// limpiar ```json
+$contenido = str_replace(["```json", "```"], "", $contenido);
+$contenido = trim($contenido);
+
 $datosIA = json_decode($contenido, true);
 
-$fechaHora = $datosIA["fecha_hora"] ?? null;
+// =========================
+// USAR IA + RESPALDO
+// =========================
 
-if (!preg_match('/^\d{2}\/\d{2}\/\d{2}\s\d{2}:\d{2}$/', $fechaHora)) {
+// Fecha
+if (!empty($datosIA["fecha_hora"]) && preg_match('/^\d{2}\/\d{2}\/\d{2}\s\d{2}:\d{2}$/', $datosIA["fecha_hora"])) {
+    $fechaHora = $datosIA["fecha_hora"];
+} else {
     $fechaHora = parseFechaHoraManual($respuesta);
+}
+
+// Personas (si IA lo mejora)
+if (!empty($datosIA["personas"])) {
+    $personas = $datosIA["personas"];
+}
+
+// Nombre (si IA lo detecta)
+if (!empty($datosIA["nombre"])) {
+    $nombre = $datosIA["nombre"];
 }
 
 
