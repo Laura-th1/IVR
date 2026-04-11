@@ -1,6 +1,89 @@
 <?php 
 require_once "../config/bd.php";
 
+date_default_timezone_set('America/Mexico_City');
+
+function normalizarHora($hora, $minutos = "00", $periodo = "") {
+    $hora = intval($hora);
+    $minutos = str_pad($minutos, 2, '0', STR_PAD_LEFT);
+    $periodo = strtolower($periodo);
+
+    if ($periodo === 'am') {
+        if ($hora === 12) {
+            $hora = 0;
+        }
+    } elseif ($periodo === 'pm') {
+        if ($hora !== 12) {
+            $hora += 12;
+        }
+    } elseif ($periodo === 'mañana') {
+        if ($hora === 12) {
+            $hora = 0;
+        }
+    } elseif (in_array($periodo, ['tarde', 'noche', 'madrugada'], true)) {
+        if ($hora < 12) {
+            $hora += 12;
+        }
+    }
+
+    return sprintf('%02d:%02d', $hora, $minutos);
+}
+
+function extraerHoraTexto($texto) {
+    $texto = strtolower($texto);
+
+    if (preg_match('/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i', $texto, $match)) {
+        return normalizarHora($match[1], $match[2] ?? '00', $match[3]);
+    }
+
+    if (preg_match('/\b(\d{1,2})(?::(\d{2}))?\s+de la\s+(mañana|tarde|noche|madrugada)\b/i', $texto, $match)) {
+        return normalizarHora($match[1], $match[2] ?? '00', $match[3]);
+    }
+
+    if (preg_match('/\b(\d{1,2})(?::(\d{2}))\b/', $texto, $match)) {
+        return normalizarHora($match[1], $match[2]);
+    }
+
+    if (preg_match('/\b(\d{1,2})\b/', $texto, $match)) {
+        return normalizarHora($match[1]);
+    }
+
+    return null;
+}
+
+function parseFechaHoraManual($texto) {
+    $texto = strtolower($texto);
+    $fecha = new DateTime();
+
+    if (strpos($texto, 'pasado mañana') !== false) {
+        $fecha->modify('+2 days');
+    } elseif (strpos($texto, 'mañana') !== false) {
+        $fecha->modify('+1 day');
+    } elseif (strpos($texto, 'hoy') !== false) {
+        // misma fecha
+    } else {
+        $dias = [
+            'lunes', 'martes', 'miércoles', 'miercoles',
+            'jueves', 'viernes', 'sábado', 'sabado', 'domingo'
+        ];
+
+        foreach ($dias as $dia) {
+            if (strpos($texto, $dia) !== false) {
+                $fecha->modify('next ' . $dia);
+                break;
+            }
+        }
+    }
+
+    $hora = extraerHoraTexto($texto);
+
+    if ($hora) {
+        return $fecha->format('d/m/y') . ' ' . $hora;
+    }
+
+    return $fecha->format('d/m/y') . ' 00:00';
+}
+
 header("Content-Type: text/xml");
 
 // Debug temporal
@@ -110,24 +193,25 @@ if ($step == 1) {
 // =========================
 $apiKey = getenv("OPENAI_API_KEY");
 
-$prompt = "Convierte este texto en una fecha y hora exacta.
+$prompt = "Convierta este texto en una fecha y hora exacta en formato dd/mm/yy HH:MM (24 horas).
 
 Texto: \"$respuesta\"
 
-Reglas:
-- Si dice 'hoy' usa la fecha actual
-- Si dice 'mañana' suma 1 día
-- Formato obligatorio: dd/mm/yy HH:MM (24 horas)
-- NO expliques nada
-- SOLO responde JSON válido
+Instrucciones estrictas:
+- Responda ÚNICAMENTE con un objeto JSON válido.
+- El objeto debe contener solo la clave \"fecha_hora\".
+- El valor debe tener formato dd/mm/yy HH:MM.
+- No agregue texto, explicaciones, ni mensajes adicionales.
+- Si no puede convertirlo, devuelva {\"fecha_hora\":\"\"}.
 
-Ejemplo de salida:
+Ejemplo exacto de salida:
 {\"fecha_hora\":\"11/04/26 16:00\"}";
 
 $dataIA = [
     "model" => "gpt-4o-mini",
+    "temperature" => 0,
     "messages" => [
-        ["role" => "system", "content" => "Eres un asistente que procesa reservas."],
+        ["role" => "system", "content" => "Eres un asistente que procesa reservas y devuelve solo JSON."],
         ["role" => "user", "content" => $prompt]
     ]
 ];
@@ -152,70 +236,11 @@ $contenido = $resultIA["choices"][0]["message"]["content"] ?? "{}";
 
 $datosIA = json_decode($contenido, true);
 
-// Fallback si falla la IA
-$fechaHora = $datosIA["fecha_hora"] ?? $respuesta;
+$fechaHora = $datosIA["fecha_hora"] ?? null;
 
-// // =========================
-// // PROCESAMIENTO Y COMANDO FECHA
-// // =========================
-// $texto = strtolower($respuesta);
-// $fecha = new DateTime();
-
-// // =========================
-// // 1. PALABRAS CLAVE
-// // =========================
-// if (strpos($texto, "mañana") !== false) {
-//     $fecha->modify("+1 day");
-// } elseif (strpos($texto, "pasado mañana") !== false) {
-//     $fecha->modify("+2 day");
-// } elseif (strpos($texto, "hoy") !== false) {
-//     // se queda igual
-// }
-
-// // =========================
-// // 2. DÍAS DE LA SEMANA
-// // =========================
-// $dias = [
-//     "lunes", "martes", "miércoles", "miercoles",
-//     "jueves", "viernes", "sábado", "sabado", "domingo"
-// ];
-
-// foreach ($dias as $dia) {
-//     if (strpos($texto, $dia) !== false) {
-//         $fecha->modify("next $dia");
-//         break;
-//     }
-// }
-
-// // =========================
-// // 3. EXTRAER HORA
-// // =========================
-// $horaFormateada = "";
-
-// if (preg_match('/(\d{1,2})(:\d{2})?\s?(am|pm)?/i', $texto, $match)) {
-//     $hora = $match[1];
-//     $min = isset($match[2]) ? $match[2] : ":00";
-//     $ampm = strtolower($match[3] ?? "");
-
-//     if ($ampm == "pm" && $hora < 12) {
-//         $hora += 12;
-//     } elseif ($ampm == "am" && $hora == 12) {
-//         $hora = 0;
-//     }
-
-//     $horaFormateada = sprintf("%02d%s", $hora, $min);
-// }
-
-// // =========================
-// // 4. FORMATO FINAL
-// // =========================
-// $fechaFinal = $fecha->format("d/m/y");
-
-// if ($horaFormateada) {
-//     $fechaHora = $fechaFinal . " - " . date("h:i A", strtotime($horaFormateada));
-// } else {
-//     $fechaHora = $fechaFinal;
-// }
+if (!preg_match('/^\d{2}\/\d{2}\/\d{2}\s\d{2}:\d{2}$/', $fechaHora)) {
+    $fechaHora = parseFechaHoraManual($respuesta);
+}
 
 
 
