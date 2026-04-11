@@ -192,22 +192,24 @@ if ($step == 1) {
 // =========================
 $apiKey = getenv("OPENAI_API_KEY");
 
-$prompt = "Extrae la información de esta reserva.
+$hoy = date("d/m/y H:i");
+
+$prompt = "Convierte este texto en una fecha y hora exacta.
+
+Fecha actual: $hoy
 
 Texto: \"$respuesta\"
 
-Devuelve SOLO JSON válido con esta estructura:
-{
-  \"nombre\": \"\",
-  \"personas\": \"\",
-  \"fecha_hora\": \"\"
-}
-
 Reglas:
-- fecha_hora formato: dd/mm/yy HH:MM (24h)
-- Si dice 'hoy' o 'mañana', calcula la fecha real
-- personas debe ser número (no texto)
-- No expliques nada";
+- Usa la fecha actual como referencia
+- 'hoy' = misma fecha
+- 'mañana' = +1 día
+- 'pasado mañana' = +2 días
+- Formato obligatorio: dd/mm/yy HH:MM (24h)
+- Responde SOLO JSON válido
+
+Ejemplo:
+{\"fecha_hora\":\"11/04/26 16:00\"}";
 
 $dataIA = [
     "model" => "gpt-4o-mini",
