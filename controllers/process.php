@@ -148,20 +148,10 @@ if ($step == 1) {
    ========================= */
 } elseif ($step == 2) {
 
-    $resultadoPersonasIA = extraerPersonasIA($respuesta);
-    $personasLimpias = $resultadoPersonasIA["personas"];
-
-    if ($personasLimpias === null) {
-        echo "<Say voice='Polly.Lupe'>No entendí cuántas personas son. Por favor repita solo la cantidad de personas.</Say>";
-        echo '<Redirect>https://ivr-3knv.onrender.com/controllers/process.php?step=2</Redirect>';
-        echo "</Response>";
-        exit;
-    }
-
     $query = "INSERT INTO respuestas (telefono, pregunta, respuesta) 
               VALUES ($1, $2, $3)";
     
-    $result = pg_query_params($conn, $query, [$telefono, 'Personas', $personasLimpias]);
+    $result = pg_query_params($conn, $query, [$telefono, 'Personas', $respuesta]);
 
     if (!$result) {
         echo "<Say voice='Polly.Lupe'>Error al guardar la cantidad de personas.</Say>";
@@ -197,22 +187,23 @@ if ($step == 1) {
         echo "<Say voice='Polly.Lupe'>Error al guardar la fecha y hora.</Say>";
     
     } else {
-        // =========================
-        // IA PARA EXTRAER DATOS
-        // =========================
-        $resultadoIA = extraerDatosReservaIA($respuesta, date("d/m/y H:i"));
-        $datosIA = $resultadoIA["data"] ?? [];
+        // Fecha
+if (!empty($datosIA["fecha_hora"]) && preg_match('/^\d{2}\/\d{2}\/\d{2}\s\d{2}:\d{2}$/', $datosIA["fecha_hora"])) {
+    $fechaHora = $datosIA["fecha_hora"];
+} else {
+    $fechaHora = parseFechaHoraManual($respuesta);
+}
 
-        // Fecha y hora: usa IA si viene bien, si no usa respaldo manual
-        if (
-            !empty($datosIA["fecha_hora"]) &&
-            preg_match('/^\d{2}\/\d{2}\/\d{2}\s\d{2}:\d{2}$/', $datosIA["fecha_hora"])
-        ) {
-            $fechaHora = $datosIA["fecha_hora"];
-        } else {
-            $fechaHora = parseFechaHoraManual($respuesta);
-        }
-        // Obtener nombre
+// Personas (si IA lo mejora)
+if (!empty($datosIA["personas"])) {
+    $personas = $datosIA["personas"];
+}
+
+// Nombre (si IA lo detecta)
+if (!empty($datosIA["nombre"])) {
+    $nombre = $datosIA["nombre"];
+}
+  // Obtener nombre
         $queryNombre = "SELECT respuesta FROM respuestas 
                         WHERE telefono = $1 
                         AND pregunta = 'Nombre'
@@ -221,16 +212,12 @@ if ($step == 1) {
 
         $resultNombre = pg_query_params($conn, $queryNombre, [$telefono]);
 
-        $nombre = !empty($datosIA["nombre"]) ? $datosIA["nombre"] : "Desconocido";
-
-if ($resultNombre && pg_num_rows($resultNombre) > 0) {
-    $filaNombre = pg_fetch_assoc($resultNombre);
-
-    if (empty($datosIA["nombre"])) {
-        $nombre = $filaNombre['respuesta'];
-    }
-}
-
+        $nombre = "Desconocido";
+         if ($resultNombre && pg_num_rows($resultNombre) > 0) {
+            $filaNombre = pg_fetch_assoc($resultNombre);
+            $nombre = $filaNombre['respuesta'];
+        }
+        
         // Obtener personas
         $queryPersonas = "SELECT respuesta FROM respuestas 
                           WHERE telefono = $1 
@@ -240,17 +227,12 @@ if ($resultNombre && pg_num_rows($resultNombre) > 0) {
 
         $resultPersonas = pg_query_params($conn, $queryPersonas, [$telefono]);
 
-        $personas = !empty($datosIA["personas"]) ? $datosIA["personas"] : "Desconocido";
-
-if ($resultPersonas && pg_num_rows($resultPersonas) > 0) {
-    $filaPersonas = pg_fetch_assoc($resultPersonas);
-
-    if (empty($datosIA["personas"])) {
-        $personas = $filaPersonas['respuesta'];
-    }
-}
-
-        /* =========================
+        $personas = "Desconocido";
+          if ($resultPersonas && pg_num_rows($resultPersonas) > 0) {
+            $filaPersonas = pg_fetch_assoc($resultPersonas);
+            $personas = $filaPersonas['respuesta'];
+        }
+          /* =========================
            TELEGRAM
            ========================= */
         $token = getenv("TELEGRAM_TOKEN");
