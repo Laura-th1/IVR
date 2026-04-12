@@ -4,6 +4,42 @@ require_once "../config/openai.php";
 
 date_default_timezone_set('America/Mexico_City');
 
+function convertirNumero($texto) {
+    $texto = strtolower($texto);
+
+    $map = [
+        "uno" => 1, "una" => 1,
+        "dos" => 2,
+        "tres" => 3,
+        "cuatro" => 4,
+        "cinco" => 5,
+        "seis" => 6,
+        "siete" => 7,
+        "ocho" => 8,
+        "nueve" => 9,
+        "diez" => 10
+    ];
+
+    // Si ya es número
+    if (is_numeric($texto)) {
+        return intval($texto);
+    }
+
+    // Buscar palabra número
+    foreach ($map as $palabra => $numero) {
+        if (strpos($texto, $palabra) !== false) {
+            return $numero;
+        }
+    }
+
+    // Buscar números dentro del texto (ej: "5 personas")
+    if (preg_match('/\d+/', $texto, $match)) {
+        return intval($match[0]);
+    }
+
+    return 0; // fallback limpio
+}
+
 function normalizarHora($hora, $minutos = "00", $periodo = "") {
     $hora = intval($hora);
     $minutos = str_pad($minutos, 2, '0', STR_PAD_LEFT);
@@ -187,50 +223,54 @@ if ($step == 1) {
         echo "<Say voice='Polly.Lupe'>Error al guardar la fecha y hora.</Say>";
     
     } else {
-        // Fecha
-if (!empty($datosIA["fecha_hora"]) && preg_match('/^\d{2}\/\d{2}\/\d{2}\s\d{2}:\d{2}$/', $datosIA["fecha_hora"])) {
-    $fechaHora = $datosIA["fecha_hora"];
-} else {
-    $fechaHora = parseFechaHoraManual($respuesta);
-}
+        // Llamar a OpenAI para extraer datos
+        $resultadoIA = extraerDatosReservaIA($respuesta);
+        
+        // Fecha/Hora
+        if ($resultadoIA["ok"] && !empty($resultadoIA["data"]["fecha_hora"])) {
+            $fechaHora = $resultadoIA["data"]["fecha_hora"];
+        } else {
+            $fechaHora = parseFechaHoraManual($respuesta);
+        }
 
-// Personas (si IA lo mejora)
-if (!empty($datosIA["personas"])) {
-    $personas = $datosIA["personas"];
-}
+        // Personas (si IA lo extrae)
+        $personas = "Desconocido";
+        if ($resultadoIA["ok"] && !empty($resultadoIA["data"]["personas"])) {
+            $personas = convertirNumero(strval($resultadoIA["data"]["personas"]));
+        }
 
-// Nombre (si IA lo detecta)
-if (!empty($datosIA["nombre"])) {
-    $nombre = $datosIA["nombre"];
-}
-  // Obtener nombre
-        $queryNombre = "SELECT respuesta FROM respuestas 
-                        WHERE telefono = $1 
-                        AND pregunta = 'Nombre'
-                        ORDER BY fecha DESC
-                        LIMIT 1";
-
-        $resultNombre = pg_query_params($conn, $queryNombre, [$telefono]);
-
+        // Nombre (si IA lo detecta)
         $nombre = "Desconocido";
-         if ($resultNombre && pg_num_rows($resultNombre) > 0) {
-            $filaNombre = pg_fetch_assoc($resultNombre);
-            $nombre = $filaNombre['respuesta'];
+        if ($resultadoIA["ok"] && !empty($resultadoIA["data"]["nombre"])) {
+            $nombre = $resultadoIA["data"]["nombre"];
+        } else {
+            // Obtener nombre de la BD si IA no lo detecta
+            $queryNombre = "SELECT respuesta FROM respuestas 
+                            WHERE telefono = $1 
+                            AND pregunta = 'Nombre'
+                            ORDER BY fecha DESC
+                            LIMIT 1";
+
+            $resultNombre = pg_query_params($conn, $queryNombre, [$telefono]);
+            if ($resultNombre && pg_num_rows($resultNombre) > 0) {
+                $filaNombre = pg_fetch_assoc($resultNombre);
+                $nombre = $filaNombre['respuesta'];
+            }
         }
         
-        // Obtener personas
-        $queryPersonas = "SELECT respuesta FROM respuestas 
-                          WHERE telefono = $1 
-                          AND pregunta = 'Personas'
-                          ORDER BY fecha DESC
-                          LIMIT 1";
+        // Personas (fallback si IA no lo extrae correctamente)
+        if ($personas === "Desconocido") {
+            $queryPersonas = "SELECT respuesta FROM respuestas 
+                              WHERE telefono = $1 
+                              AND pregunta = 'Personas'
+                              ORDER BY fecha DESC
+                              LIMIT 1";
 
-        $resultPersonas = pg_query_params($conn, $queryPersonas, [$telefono]);
-
-        $personas = "Desconocido";
-          if ($resultPersonas && pg_num_rows($resultPersonas) > 0) {
-            $filaPersonas = pg_fetch_assoc($resultPersonas);
-            $personas = $filaPersonas['respuesta'];
+            $resultPersonas = pg_query_params($conn, $queryPersonas, [$telefono]);
+            if ($resultPersonas && pg_num_rows($resultPersonas) > 0) {
+                $filaPersonas = pg_fetch_assoc($resultPersonas);
+                $personas = convertirNumero($filaPersonas['respuesta']);
+            }
         }
           /* =========================
            TELEGRAM
