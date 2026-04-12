@@ -1,5 +1,6 @@
 <?php 
 require_once "../config/bd.php";
+require_once "../config/openai.php";
 
 date_default_timezone_set('America/Mexico_City');
 
