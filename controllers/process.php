@@ -148,10 +148,19 @@ if ($step == 1) {
    ========================= */
 } elseif ($step == 2) {
 
+    $resultadoPersonasIA = extraerPersonasIA($respuesta);
+    $personasLimpias = $resultadoPersonasIA["personas"];
+
+    if ($personasLimpias === null) {
+        echo "<Say voice='Polly.Lupe'>No entendí cuántas personas son. Por favor repita solo la cantidad de personas.</Say>";
+        echo '<Redirect>https://ivr-3knv.onrender.com/controllers/process.php?step=2</Redirect>';
+        echo "</Response>";
+        exit;
+    }
+
     $query = "INSERT INTO respuestas (telefono, pregunta, respuesta) 
               VALUES ($1, $2, $3)";
-    
-    $result = pg_query_params($conn, $query, [$telefono, 'Personas', $respuesta]);
+    $result = pg_query_params($conn, $query, [$telefono, 'Personas', $personasLimpias]);
 
     if (!$result) {
         echo "<Say voice='Polly.Lupe'>Error al guardar la cantidad de personas.</Say>";
@@ -171,6 +180,7 @@ if ($step == 1) {
                 
               </Gather>';
     }
+
 
 /* =========================
    STEP 3 - GUARDAR FECHA/HORA + TELEGRAM
