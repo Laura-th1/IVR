@@ -187,87 +187,21 @@ if ($step == 1) {
         echo "<Say voice='Polly.Lupe'>Error al guardar la fecha y hora.</Say>";
     
     } else {
+        // =========================
+        // IA PARA EXTRAER DATOS
+        // =========================
+        $resultadoIA = extraerDatosReservaIA($respuesta, date("d/m/y H:i"));
+        $datosIA = $resultadoIA["data"] ?? [];
 
-// =========================
-// IA PARA PROCESAR TODO
-// =========================
-$apiKey = getenv("OPENAI_API_KEY");
-
-$hoy = date("d/m/y H:i");
-
-$prompt = "Convierte este texto en una fecha y hora exacta.
-
-Fecha actual: $hoy
-
-Texto: \"$respuesta\"
-
-Reglas:
-- Usa la fecha actual como referencia
-- 'hoy' = misma fecha
-- 'mañana' = +1 día
-- 'pasado mañana' = +2 días
-- Formato obligatorio: dd/mm/yy HH:MM (24h)
-- Responde SOLO JSON válido
-
-Ejemplo:
-{\"fecha_hora\":\"11/04/26 16:00\"}";
-
-$dataIA = [
-    "model" => "gpt-4o-mini",
-    "temperature" => 0,
-    "messages" => [
-        ["role" => "system", "content" => "Procesa reservas y devuelve JSON limpio."],
-        ["role" => "user", "content" => $prompt]
-    ]
-];
-
-$ch = curl_init("https://api.openai.com/v1/chat/completions");
-
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_POST, true);
-curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    "Authorization: Bearer $apiKey",
-    "Content-Type: application/json"
-]);
-
-curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($dataIA));
-
-$responseIA = curl_exec($ch);
-curl_close($ch);
-
-$resultIA = json_decode($responseIA, true);
-
-$contenido = $resultIA["choices"][0]["message"]["content"] ?? "{}";
-
-// limpiar ```json
-$contenido = str_replace(["```json", "```"], "", $contenido);
-$contenido = trim($contenido);
-
-$datosIA = json_decode($contenido, true);
-
-// =========================
-// USAR IA + RESPALDO
-// =========================
-
-// Fecha
-if (!empty($datosIA["fecha_hora"]) && preg_match('/^\d{2}\/\d{2}\/\d{2}\s\d{2}:\d{2}$/', $datosIA["fecha_hora"])) {
-    $fechaHora = $datosIA["fecha_hora"];
-} else {
-    $fechaHora = parseFechaHoraManual($respuesta);
-}
-
-// Personas (si IA lo mejora)
-if (!empty($datosIA["personas"])) {
-    $personas = $datosIA["personas"];
-}
-
-// Nombre (si IA lo detecta)
-if (!empty($datosIA["nombre"])) {
-    $nombre = $datosIA["nombre"];
-}
-
-
-
+        // Fecha y hora: usa IA si viene bien, si no usa respaldo manual
+        if (
+            !empty($datosIA["fecha_hora"]) &&
+            preg_match('/^\d{2}\/\d{2}\/\d{2}\s\d{2}:\d{2}$/', $datosIA["fecha_hora"])
+        ) {
+            $fechaHora = $datosIA["fecha_hora"];
+        } else {
+            $fechaHora = parseFechaHoraManual($respuesta);
+        }
         // Obtener nombre
         $queryNombre = "SELECT respuesta FROM respuestas 
                         WHERE telefono = $1 
@@ -277,12 +211,15 @@ if (!empty($datosIA["nombre"])) {
 
         $resultNombre = pg_query_params($conn, $queryNombre, [$telefono]);
 
-        $nombre = "Desconocido";
+        $nombre = !empty($datosIA["nombre"]) ? $datosIA["nombre"] : "Desconocido";
 
-        if ($resultNombre && pg_num_rows($resultNombre) > 0) {
-            $filaNombre = pg_fetch_assoc($resultNombre);
-            $nombre = $filaNombre['respuesta'];
-        }
+if ($resultNombre && pg_num_rows($resultNombre) > 0) {
+    $filaNombre = pg_fetch_assoc($resultNombre);
+
+    if (empty($datosIA["nombre"])) {
+        $nombre = $filaNombre['respuesta'];
+    }
+}
 
         // Obtener personas
         $queryPersonas = "SELECT respuesta FROM respuestas 
@@ -293,12 +230,15 @@ if (!empty($datosIA["nombre"])) {
 
         $resultPersonas = pg_query_params($conn, $queryPersonas, [$telefono]);
 
-        $personas = "Desconocido";
+        $personas = !empty($datosIA["personas"]) ? $datosIA["personas"] : "Desconocido";
 
-        if ($resultPersonas && pg_num_rows($resultPersonas) > 0) {
-            $filaPersonas = pg_fetch_assoc($resultPersonas);
-            $personas = $filaPersonas['respuesta'];
-        }
+if ($resultPersonas && pg_num_rows($resultPersonas) > 0) {
+    $filaPersonas = pg_fetch_assoc($resultPersonas);
+
+    if (empty($datosIA["personas"])) {
+        $personas = $filaPersonas['respuesta'];
+    }
+}
 
         /* =========================
            TELEGRAM
