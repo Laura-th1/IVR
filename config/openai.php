@@ -118,13 +118,15 @@ Reglas:
         ]
     ];
 }
+<?php
+
 function extraerPersonasIA($texto) {
     $apiKey = getenv("OPENAI_API_KEY");
 
     if (!$apiKey) {
         return [
             "ok" => false,
-            "error" => "Falta la variable OPENAI_API_KEY en Render",
+            "error" => "Falta OPENAI_API_KEY",
             "personas" => null
         ];
     }
@@ -133,17 +135,22 @@ function extraerPersonasIA($texto) {
 
 Mensaje: \"$texto\"
 
-Devuelve esta estructura exacta:
+Devuelve exactamente:
 {
   \"personas\": null
 }
 
 Reglas:
 - Extrae únicamente la cantidad de personas
-- Debe ser un número entero
+- Acepta números escritos con cifras o palabras
+- Ejemplos:
+  - '4 personas' => 4
+  - 'para cuatro personas' => 4
+  - 'somos 2' => 2
+  - 'mesa para seis' => 6
 - Si no está claro, devuelve null
 - No expliques nada
-- No escribas texto fuera del JSON";
+- No escribas nada fuera del JSON";
 
     $payload = [
         "model" => "gpt-4.1-mini",
@@ -170,7 +177,7 @@ Reglas:
             "Content-Type: application/json"
         ],
         CURLOPT_POSTFIELDS => json_encode($payload),
-        CURLOPT_TIMEOUT => 30
+        CURLOPT_TIMEOUT => 20
     ]);
 
     $response = curl_exec($ch);
@@ -214,14 +221,16 @@ Reglas:
     $personas = $data["personas"] ?? null;
 
     if (!is_numeric($personas)) {
-        $personas = null;
-    } else {
-        $personas = (int)$personas;
+        return [
+            "ok" => false,
+            "error" => "La IA no devolvió un número válido",
+            "personas" => null
+        ];
     }
 
     return [
         "ok" => true,
         "error" => null,
-        "personas" => $personas
+        "personas" => (int)$personas
     ];
 }
