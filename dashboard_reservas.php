@@ -1,5 +1,6 @@
 <?php
-require_once "/config/bd.php";
+
+require_once __DIR__ . "/../config/bd.php";
 
 $query = "
 SELECT 
