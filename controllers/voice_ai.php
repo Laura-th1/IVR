@@ -7,7 +7,7 @@ echo "<Say voice='Polly.Lupe'>
 Hola, bienvenido a By Wifer. Puedes decir tu reserva completa después del tono.
 </Say>";
 
-echo "<Play>https://api.twilio.com/cowbell.mp3</Play>";
+
 
 echo '<Gather 
         input="speech"
