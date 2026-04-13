@@ -14,7 +14,7 @@ echo '<Gather
         language="es-ES"
         speechTimeout="auto"
         method="POST"
-        action="https://ivr-3knv.onrender.com/controllers/process_ai.php">
+        action="https://ivr-3knv.onrender.com/controllers/process_ai.php/">
       </Gather>';
 
 echo "</Response>";
