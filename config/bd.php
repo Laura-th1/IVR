@@ -1,13 +1,14 @@
 <?php
-$host = "dpg-d6v112s50q8c739c5g8g-a";
-$db   = "bd_ivr";
-$user = "bd_ivr_user";
-$pass = "qyQqnpz9HAABB9e4nr0BVTy0JGXzcYGU";
+$host = getenv("DB_HOST");
+$port = getenv("DB_PORT");
+$db   = getenv("DB_NAME");
+$user = getenv("DB_USER");
+$pass = getenv("DB_PASSWORD");
 
-$conn = pg_connect("host=$host dbname=$db user=$user password=$pass");
-
-if (!$conn) {
-    die("Error de conexión");
+try {
+    $conn = new PDO("pgsql:host=$host;port=$port;dbname=$db", $user, $pass);
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+    echo "Error de conexión: " . $e->getMessage();
 }
-
 ?>
