@@ -1,24 +1,63 @@
 <?php
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+error_reporting(E_ALL);
+
 require_once "../config/bd.php";
 require_once "../config/openai.php";
 
-header("Content-Type: text/xml");
+header("Content-Type: text/xml; charset=UTF-8");
 date_default_timezone_set('America/Mexico_City');
+
+echo '<?xml version="1.0" encoding="UTF-8"?>';
+echo "<Response>";
 
 $telefono = trim($_POST['From'] ?? '');
 $texto    = trim($_POST['SpeechResult'] ?? '');
 
-echo "<Response>";
+// =========================
+// LOG DEBUG
+// =========================
+@file_put_contents(
+    __DIR__ . "/log_ai.txt",
+    "Fecha: " . date('Y-m-d H:i:s') . "\n" .
+    "POST: " . print_r($_POST, true) . "\n" .
+    "-----------------------------------\n",
+    FILE_APPEND
+);
 
 // =========================
 // FUNCIONES AUXILIARES
 // =========================
+function responderYSalir($mensaje) {
+    $mensajeSeguro = htmlspecialchars($mensaje, ENT_QUOTES, 'UTF-8');
+    echo '<Say voice="Polly.Lupe">' . $mensajeSeguro . '</Say>';
+    echo "</Response>";
+    exit;
+}
+
+function preguntarYSalir($mensaje) {
+    $mensajeSeguro = htmlspecialchars($mensaje, ENT_QUOTES, 'UTF-8');
+    echo '<Gather
+            input="speech"
+            language="es-ES"
+            speechTimeout="auto"
+            method="POST"
+            action="https://ivr-3knv.onrender.com/controllers/process_ai.php"
+            timeout="5">';
+    echo '<Say voice="Polly.Lupe">' . $mensajeSeguro . '</Say>';
+    echo '</Gather>';
+    echo '<Say voice="Polly.Lupe">No entendí su respuesta.</Say>';
+    echo "</Response>";
+    exit;
+}
+
 function limpiarTexto($texto) {
     return trim(mb_strtolower($texto, 'UTF-8'));
 }
 
 function convertirNumero($texto) {
-    $texto = limpiarTexto($texto);
+    $texto = limpiarTexto((string)$texto);
 
     $map = [
         "uno" => 1, "una" => 1,
@@ -54,7 +93,7 @@ function convertirNumero($texto) {
         }
     }
 
-    if (preg_match('/\b(\d+)\b/', $texto, $match)) {
+    if (preg_match('/\b(\d+)\b/u', $texto, $match)) {
         return intval($match[1]);
     }
 
@@ -142,7 +181,6 @@ function parseFechaHoraManual($texto) {
         return $fecha->format('d/m/y') . ' ' . $hora;
     }
 
-    // Si no hay hora clara, no cierres la fecha aún como válida
     return "";
 }
 
@@ -152,7 +190,7 @@ function obtenerReservaTemporal($conn, $telefono) {
               WHERE telefono = $1
               LIMIT 1";
 
-    $result = pg_query_params($conn, $query, [$telefono]);
+    $result = @pg_query_params($conn, $query, [$telefono]);
 
     if ($result && pg_num_rows($result) > 0) {
         return pg_fetch_assoc($result);
@@ -177,53 +215,28 @@ function guardarReservaTemporal($conn, $telefono, $nombre, $personas, $fechaHora
             updated_at = NOW()
     ";
 
-    return pg_query_params($conn, $query, [$telefono, $nombre, $personas, $fechaHora]);
+    return @pg_query_params($conn, $query, [$telefono, $nombre, $personas, $fechaHora]);
 }
 
 function borrarReservaTemporal($conn, $telefono) {
     $query = "DELETE FROM reservas_temp WHERE telefono = $1";
-    pg_query_params($conn, $query, [$telefono]);
-}
-
-function responderGather($mensaje) {
-    $mensajeSeguro = htmlspecialchars($mensaje, ENT_QUOTES, 'UTF-8');
-
-    echo '<Gather input="speech"
-                  language="es-ES"
-                  speechTimeout="auto"
-                  method="POST"
-                  action="https://ivr-3knv.onrender.com/controllers/process_ai.php">';
-    echo '<Say voice="Polly.Lupe">' . $mensajeSeguro . '</Say>';
-    echo '</Gather>';
-    echo "</Response>";
-    exit;
+    @pg_query_params($conn, $query, [$telefono]);
 }
 
 // =========================
 // VALIDACIONES BÁSICAS
 // =========================
 if (!$conn) {
-    echo "<Say voice='Polly.Lupe'>Error de conexión con la base de datos.</Say>";
-    echo "</Response>";
-    exit;
+    responderYSalir("Error de conexión con la base de datos.");
 }
 
 if (empty($telefono)) {
-    echo "<Say voice='Polly.Lupe'>No se pudo identificar el número de teléfono.</Say>";
-    echo "</Response>";
-    exit;
+    responderYSalir("No se pudo identificar el número de teléfono.");
 }
 
 if (empty($texto)) {
-    responderGather("No entendí. Por favor repite.");
+    preguntarYSalir("No entendí. Por favor repite tu reserva.");
 }
-
-// Debug opcional
-@file_put_contents(
-    "log_ai.txt",
-    "Telefono: {$telefono}\nTexto: {$texto}\nFecha: " . date('Y-m-d H:i:s') . "\n-----------------\n",
-    FILE_APPEND
-);
 
 // =========================
 // CARGAR CONTEXTO PREVIO
@@ -237,11 +250,15 @@ $fechaHoraAnterior = trim($temp["fecha_hora"] ?? "");
 // =========================
 // IA PROCESA LO NUEVO
 // =========================
-$nombreNuevo = "";
-$personasNuevo = null;
+$nombreNuevo    = "";
+$personasNuevo  = null;
 $fechaHoraNueva = "";
 
-$resultadoIA = extraerDatosReservaIA($texto, date("d/m/y H:i"));
+$resultadoIA = null;
+
+if (function_exists('extraerDatosReservaIA')) {
+    $resultadoIA = extraerDatosReservaIA($texto, date("d/m/y H:i"));
+}
 
 if (is_array($resultadoIA) && !empty($resultadoIA["ok"])) {
     $data = $resultadoIA["data"] ?? [];
@@ -272,7 +289,6 @@ if (empty($fechaHoraNueva)) {
     }
 }
 
-// Si el texto parece un nombre simple, lo tomamos como nombre
 if (empty($nombreNuevo)) {
     $textoLimpio = limpiarTexto($texto);
 
@@ -295,13 +311,12 @@ if (empty($nombreNuevo)) {
 }
 
 // =========================
-// MEZCLAR DATOS NUEVOS + ANTERIORES
+// MEZCLAR DATOS
 // =========================
 $nombreFinal    = !empty($nombreAnterior) ? $nombreAnterior : $nombreNuevo;
 $personasFinal  = !empty($personasAnterior) ? $personasAnterior : $personasNuevo;
 $fechaHoraFinal = !empty($fechaHoraAnterior) ? $fechaHoraAnterior : $fechaHoraNueva;
 
-// Si ahora sí llegó un dato que antes faltaba, úsalo
 if (empty($nombreFinal) && !empty($nombreNuevo)) {
     $nombreFinal = $nombreNuevo;
 }
@@ -315,29 +330,27 @@ if (empty($fechaHoraFinal) && !empty($fechaHoraNueva)) {
 }
 
 // =========================
-// GUARDAR PROGRESO TEMPORAL
+// GUARDAR TEMPORAL
 // =========================
 $okTemp = guardarReservaTemporal($conn, $telefono, $nombreFinal, $personasFinal, $fechaHoraFinal);
 
 if (!$okTemp) {
-    echo "<Say voice='Polly.Lupe'>Hubo un error guardando los datos de la reserva.</Say>";
-    echo "</Response>";
-    exit;
+    responderYSalir("Hubo un error guardando la información temporal de la reserva.");
 }
 
 // =========================
-// PREGUNTAR SOLO LO QUE FALTA
+// PREGUNTAR LO QUE FALTA
 // =========================
 if (empty($nombreFinal)) {
-    responderGather("Perfecto. ¿A nombre de quién hago la reserva?");
+    preguntarYSalir("Perfecto. ¿A nombre de quién hago la reserva?");
 }
 
 if (empty($personasFinal)) {
-    responderGather("¿Para cuántas personas es la reserva?");
+    preguntarYSalir("¿Para cuántas personas es la reserva?");
 }
 
 if (empty($fechaHoraFinal)) {
-    responderGather("¿Para qué día y hora deseas la reserva?");
+    preguntarYSalir("¿Para qué día y hora deseas la reserva?");
 }
 
 // =========================
@@ -346,7 +359,7 @@ if (empty($fechaHoraFinal)) {
 $queryFinal = "INSERT INTO reservas (telefono, nombre, personas, fecha_hora)
                VALUES ($1, $2, $3, $4)";
 
-$resultFinal = pg_query_params($conn, $queryFinal, [
+$resultFinal = @pg_query_params($conn, $queryFinal, [
     $telefono,
     $nombreFinal,
     $personasFinal,
@@ -354,9 +367,7 @@ $resultFinal = pg_query_params($conn, $queryFinal, [
 ]);
 
 if (!$resultFinal) {
-    echo "<Say voice='Polly.Lupe'>La información fue entendida, pero hubo un error al guardar la reserva final.</Say>";
-    echo "</Response>";
-    exit;
+    responderYSalir("Entendí la reserva, pero hubo un error al guardarla.");
 }
 
 // =========================
@@ -365,18 +376,20 @@ if (!$resultFinal) {
 $token = getenv("TELEGRAM_TOKEN");
 $chat_id = "-4994123276";
 
-$mensaje = "📞 Nueva reserva By Wifer:\n";
-$mensaje .= "Telefono: $telefono\n";
-$mensaje .= "Nombre: $nombreFinal\n";
-$mensaje .= "Personas: $personasFinal\n";
-$mensaje .= "Fecha y hora: $fechaHoraFinal";
+if (!empty($token)) {
+    $mensaje = "📞 Nueva reserva By Wifer:\n";
+    $mensaje .= "Telefono: $telefono\n";
+    $mensaje .= "Nombre: $nombreFinal\n";
+    $mensaje .= "Personas: $personasFinal\n";
+    $mensaje .= "Fecha y hora: $fechaHoraFinal";
 
-$url = "https://api.telegram.org/bot{$token}/sendMessage";
+    $url = "https://api.telegram.org/bot{$token}/sendMessage";
 
-$telegramResponse = @file_get_contents($url . "?" . http_build_query([
-    "chat_id" => $chat_id,
-    "text" => $mensaje
-]));
+    @file_get_contents($url . "?" . http_build_query([
+        "chat_id" => $chat_id,
+        "text" => $mensaje
+    ]));
+}
 
 // =========================
 // LIMPIAR TEMPORAL
