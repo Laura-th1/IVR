@@ -2,18 +2,25 @@
 
 require_once "./config/bd.php";
 
-$query = "
-SELECT 
-    telefono,
-    MAX(CASE WHEN pregunta = 'Nombre' THEN respuesta END) as nombre,
-    MAX(CASE WHEN pregunta = 'Personas' THEN respuesta END) as personas,
-    MAX(CASE WHEN pregunta = 'FechaHora' THEN respuesta END) as fecha_hora
-FROM respuestas
-GROUP BY telefono
-ORDER BY MAX(fecha) DESC
-";
+try {
+    $query = "
+    SELECT 
+        telefono,
+        MAX(CASE WHEN pregunta = 'Nombre' THEN respuesta END) as nombre,
+        MAX(CASE WHEN pregunta = 'Personas' THEN respuesta END) as personas,
+        MAX(CASE WHEN pregunta = 'FechaHora' THEN respuesta END) as fecha_hora
+    FROM respuestas
+    GROUP BY telefono
+    ORDER BY MAX(fecha) DESC
+    ";
 
-$result = pg_query($conn, $query);
+    $stmt = $conn->prepare($query);
+    $stmt->execute();
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    echo "Error: " . $e->getMessage();
+    $rows = [];
+}
 ?>
 
 <!DOCTYPE html>
@@ -39,12 +46,12 @@ $result = pg_query($conn, $query);
         <th>Fecha y Hora</th>
     </tr>
 
-    <?php while ($row = pg_fetch_assoc($result)) { ?>
+    <?php foreach ($rows as $row) { ?>
         <tr>
-            <td><?= $row['telefono'] ?></td>
-            <td><?= $row['nombre'] ?></td>
-            <td><?= $row['personas'] ?></td>
-            <td><?= $row['fecha_hora'] ?></td>
+            <td><?= htmlspecialchars($row['telefono'] ?? '') ?></td>
+            <td><?= htmlspecialchars($row['nombre'] ?? '') ?></td>
+            <td><?= htmlspecialchars($row['personas'] ?? '') ?></td>
+            <td><?= htmlspecialchars($row['fecha_hora'] ?? '') ?></td>
         </tr>
     <?php } ?>
 

@@ -187,13 +187,19 @@ function parseFechaHoraManual($texto) {
 function obtenerReservaTemporal($conn, $telefono) {
     $query = "SELECT nombre, personas, fecha_hora
               FROM reservas_temp
-              WHERE telefono = $1
+              WHERE telefono = ?
               LIMIT 1";
 
-    $result = @pg_query_params($conn, $query, [$telefono]);
+    try {
+        $result = $conn->prepare($query);
+        $result->execute([$telefono]);
+        $row = $result->fetch(PDO::FETCH_ASSOC);
 
-    if ($result && pg_num_rows($result) > 0) {
-        return pg_fetch_assoc($result);
+        if ($row) {
+            return $row;
+        }
+    } catch (Exception $e) {
+        error_log("Error en obtenerReservaTemporal: " . $e->getMessage());
     }
 
     return [
@@ -206,7 +212,7 @@ function obtenerReservaTemporal($conn, $telefono) {
 function guardarReservaTemporal($conn, $telefono, $nombre, $personas, $fechaHora) {
     $query = "
         INSERT INTO reservas_temp (telefono, nombre, personas, fecha_hora, updated_at)
-        VALUES ($1, $2, $3, $4, NOW())
+        VALUES (?, ?, ?, ?, NOW())
         ON CONFLICT (telefono)
         DO UPDATE SET
             nombre = EXCLUDED.nombre,
@@ -215,12 +221,23 @@ function guardarReservaTemporal($conn, $telefono, $nombre, $personas, $fechaHora
             updated_at = NOW()
     ";
 
-    return @pg_query_params($conn, $query, [$telefono, $nombre, $personas, $fechaHora]);
+    try {
+        $stmt = $conn->prepare($query);
+        return $stmt->execute([$telefono, $nombre, $personas, $fechaHora]);
+    } catch (Exception $e) {
+        error_log("Error en guardarReservaTemporal: " . $e->getMessage());
+        return false;
+    }
 }
 
 function borrarReservaTemporal($conn, $telefono) {
-    $query = "DELETE FROM reservas_temp WHERE telefono = $1";
-    @pg_query_params($conn, $query, [$telefono]);
+    $query = "DELETE FROM reservas_temp WHERE telefono = ?";
+    try {
+        $stmt = $conn->prepare($query);
+        $stmt->execute([$telefono]);
+    } catch (Exception $e) {
+        error_log("Error en borrarReservaTemporal: " . $e->getMessage());
+    }
 }
 
 // =========================
@@ -357,16 +374,22 @@ if (empty($fechaHoraFinal)) {
 // GUARDAR RESERVA FINAL
 // =========================
 $queryFinal = "INSERT INTO reservas (telefono, nombre, personas, fecha_hora)
-               VALUES ($1, $2, $3, $4)";
+               VALUES (?, ?, ?, ?)";
 
-$resultFinal = @pg_query_params($conn, $queryFinal, [
-    $telefono,
-    $nombreFinal,
-    $personasFinal,
-    $fechaHoraFinal
-]);
+try {
+    $stmtFinal = $conn->prepare($queryFinal);
+    $resultFinal = $stmtFinal->execute([
+        $telefono,
+        $nombreFinal,
+        $personasFinal,
+        $fechaHoraFinal
+    ]);
 
-if (!$resultFinal) {
+    if (!$resultFinal) {
+        responderYSalir("Entendí la reserva, pero hubo un error al guardarla.");
+    }
+} catch (Exception $e) {
+    error_log("Error guardando reserva final: " . $e->getMessage());
     responderYSalir("Entendí la reserva, pero hubo un error al guardarla.");
 }
 

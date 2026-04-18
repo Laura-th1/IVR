@@ -156,9 +156,15 @@ echo "<Response>";
 if ($step == 1) {
 
     $query = "INSERT INTO respuestas (telefono, pregunta, respuesta) 
-              VALUES ($1, $2, $3)";
+              VALUES (?, ?, ?)";
     
-    $result = pg_query_params($conn, $query, [$telefono, 'Nombre', $respuesta]);
+    try {
+        $stmt = $conn->prepare($query);
+        $result = $stmt->execute([$telefono, 'Nombre', $respuesta]);
+    } catch (Exception $e) {
+        $result = false;
+        error_log("Error Step 1: " . $e->getMessage());
+    }
 
     if (!$result) {
         echo "<Say voice='Polly.Lupe'>Error al guardar. Intenta nuevamente.</Say>";
@@ -185,9 +191,15 @@ if ($step == 1) {
 } elseif ($step == 2) {
 
     $query = "INSERT INTO respuestas (telefono, pregunta, respuesta) 
-              VALUES ($1, $2, $3)";
+              VALUES (?, ?, ?)";
     
-    $result = pg_query_params($conn, $query, [$telefono, 'Personas', $respuesta]);
+    try {
+        $stmt = $conn->prepare($query);
+        $result = $stmt->execute([$telefono, 'Personas', $respuesta]);
+    } catch (Exception $e) {
+        $result = false;
+        error_log("Error Step 2: " . $e->getMessage());
+    }
 
     if (!$result) {
         echo "<Say voice='Polly.Lupe'>Error al guardar la cantidad de personas.</Say>";
@@ -215,9 +227,15 @@ if ($step == 1) {
 
     // Guardar fecha y hora
     $query = "INSERT INTO respuestas (telefono, pregunta, respuesta) 
-              VALUES ($1, $2, $3)";
+              VALUES (?, ?, ?)";
     
-    $result = pg_query_params($conn, $query, [$telefono, 'FechaHora', $respuesta]);
+    try {
+        $stmt = $conn->prepare($query);
+        $result = $stmt->execute([$telefono, 'FechaHora', $respuesta]);
+    } catch (Exception $e) {
+        $result = false;
+        error_log("Error Step 3 INSERT: " . $e->getMessage());
+    }
 
     if (!$result) {
         echo "<Say voice='Polly.Lupe'>Error al guardar la fecha y hora.</Say>";
@@ -246,30 +264,42 @@ if ($step == 1) {
         } else {
             // Obtener nombre de la BD si IA no lo detecta
             $queryNombre = "SELECT respuesta FROM respuestas 
-                            WHERE telefono = $1 
+                            WHERE telefono = ? 
                             AND pregunta = 'Nombre'
                             ORDER BY fecha DESC
                             LIMIT 1";
 
-            $resultNombre = pg_query_params($conn, $queryNombre, [$telefono]);
-            if ($resultNombre && pg_num_rows($resultNombre) > 0) {
-                $filaNombre = pg_fetch_assoc($resultNombre);
-                $nombre = $filaNombre['respuesta'];
+            try {
+                $stmtNombre = $conn->prepare($queryNombre);
+                $stmtNombre->execute([$telefono]);
+                $filaNombre = $stmtNombre->fetch(PDO::FETCH_ASSOC);
+                
+                if ($filaNombre) {
+                    $nombre = $filaNombre['respuesta'];
+                }
+            } catch (Exception $e) {
+                error_log("Error obteniendo nombre: " . $e->getMessage());
             }
         }
         
         // Personas (fallback si IA no lo extrae correctamente)
         if ($personas === "Desconocido") {
             $queryPersonas = "SELECT respuesta FROM respuestas 
-                              WHERE telefono = $1 
+                              WHERE telefono = ? 
                               AND pregunta = 'Personas'
                               ORDER BY fecha DESC
                               LIMIT 1";
 
-            $resultPersonas = pg_query_params($conn, $queryPersonas, [$telefono]);
-            if ($resultPersonas && pg_num_rows($resultPersonas) > 0) {
-                $filaPersonas = pg_fetch_assoc($resultPersonas);
-                $personas = convertirNumero($filaPersonas['respuesta']);
+            try {
+                $stmtPersonas = $conn->prepare($queryPersonas);
+                $stmtPersonas->execute([$telefono]);
+                $filaPersonas = $stmtPersonas->fetch(PDO::FETCH_ASSOC);
+                
+                if ($filaPersonas) {
+                    $personas = convertirNumero($filaPersonas['respuesta']);
+                }
+            } catch (Exception $e) {
+                error_log("Error obteniendo personas: " . $e->getMessage());
             }
         }
           /* =========================
