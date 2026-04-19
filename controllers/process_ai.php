@@ -356,33 +356,61 @@ if (!$okTemp) {
 }
 
 // =========================
-// PREGUNTAR LO QUE FALTA
+// PREGUNTAR LO QUE FALTA (UNA SOLA COSA)
 // =========================
 if (empty($nombreFinal)) {
     preguntarYSalir("Perfecto. ¿A nombre de quién hago la reserva?");
-}
-
-if (empty($personasFinal)) {
+} elseif (empty($personasFinal)) {
     preguntarYSalir("¿Para cuántas personas es la reserva?");
-}
-
-if (empty($fechaHoraFinal)) {
+} elseif (empty($fechaHoraFinal)) {
     preguntarYSalir("¿Para qué día y hora deseas la reserva?");
 }
 
 // =========================
 // GUARDAR RESERVA FINAL
 // =========================
-$queryFinal = "INSERT INTO reservas (telefono, nombre, personas, fecha_hora)
-               VALUES (?, ?, ?, ?)";
-
 try {
+    // Buscar id_cliente por teléfono
+    $queryCliente = "SELECT id_cliente FROM clientes WHERE telefono = ? LIMIT 1";
+    $stmtCliente = $conn->prepare($queryCliente);
+    $stmtCliente->execute([$telefono]);
+    $cliente = $stmtCliente->fetch(PDO::FETCH_ASSOC);
+
+    if (!$cliente) {
+        responderYSalir("No encontramos tu registro en el sistema. Por favor contacta a soporte.");
+    }
+
+    $idCliente = $cliente['id_cliente'];
+
+    // Separar fecha y hora (formato actual: "d/m/y H:i")
+    $partes = explode(' ', $fechaHoraFinal);
+    $fechaParte = $partes[0] ?? ''; // "d/m/y"
+    $horaParte = $partes[1] ?? '00:00'; // "H:i"
+
+    // Convertir fecha de d/m/y a YYYY-MM-DD
+    if (!empty($fechaParte)) {
+        $fechaObj = DateTime::createFromFormat('d/m/y', $fechaParte);
+        if ($fechaObj) {
+            $fechaReserva = $fechaObj->format('Y-m-d');
+        } else {
+            $fechaReserva = date('Y-m-d'); // fallback a hoy
+        }
+    } else {
+        $fechaReserva = date('Y-m-d');
+    }
+
+    // Insertar en reservas
+    $queryFinal = "INSERT INTO reservas (id_cliente, fecha_reserva, hora_reserva, cantidad_personas, origen, estado)
+                   VALUES (?, ?, ?, ?, ?, ?)";
+
     $stmtFinal = $conn->prepare($queryFinal);
     $resultFinal = $stmtFinal->execute([
-        $telefono,
-        $nombreFinal,
+        $idCliente,
+        $fechaReserva,
+        $horaParte,
         $personasFinal,
-        $fechaHoraFinal
+        'IVR',
+        'confirmada'
     ]);
 
     if (!$resultFinal) {
@@ -401,10 +429,11 @@ $chat_id = "-4994123276";
 
 if (!empty($token)) {
     $mensaje = "📞 Nueva reserva By Wifer:\n";
-    $mensaje .= "Telefono: $telefono\n";
+    $mensaje .= "Teléfono: $telefono\n";
     $mensaje .= "Nombre: $nombreFinal\n";
     $mensaje .= "Personas: $personasFinal\n";
-    $mensaje .= "Fecha y hora: $fechaHoraFinal";
+    $mensaje .= "Fecha: $fechaReserva\n";
+    $mensaje .= "Hora: $horaParte";
 
     $url = "https://api.telegram.org/bot{$token}/sendMessage";
 
@@ -423,8 +452,9 @@ borrarReservaTemporal($conn, $telefono);
 // RESPUESTA FINAL
 // =========================
 $nombreSeguro = htmlspecialchars($nombreFinal, ENT_QUOTES, 'UTF-8');
-$fechaSeguro  = htmlspecialchars($fechaHoraFinal, ENT_QUOTES, 'UTF-8');
+$fechaSeguro  = htmlspecialchars($fechaReserva, ENT_QUOTES, 'UTF-8');
+$horaSegura   = htmlspecialchars($horaParte, ENT_QUOTES, 'UTF-8');
 
-echo "<Say voice='Polly.Lupe'>Perfecto {$nombreSeguro}. Tu reserva para {$personasFinal} personas el {$fechaSeguro} ha sido confirmada. Gracias por llamar a By Wifer.</Say>";
+echo "<Say voice='Polly.Lupe'>Perfecto {$nombreSeguro}. Tu reserva para {$personasFinal} personas el {$fechaSeguro} a las {$horaSegura} ha sido confirmada. Gracias por llamar a By Wifer.</Say>";
 echo "</Response>";
 ?>

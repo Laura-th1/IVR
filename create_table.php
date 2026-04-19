@@ -21,12 +21,14 @@ $sqlReservasTemp = "CREATE TABLE IF NOT EXISTS reservas_temp (
 
 // Crear tabla reservas (FINAL)
 $sqlReservas = "CREATE TABLE IF NOT EXISTS reservas (
-    id SERIAL PRIMARY KEY,
-    telefono VARCHAR(30),
-    nombre VARCHAR(150),
-    personas INTEGER,
-    fecha_hora VARCHAR(30),
-    created_at TIMESTAMP DEFAULT NOW()
+    id_reserva SERIAL PRIMARY KEY,
+    id_cliente INTEGER,
+    fecha_creacion TIMESTAMP DEFAULT NOW(),
+    fecha_reserva DATE,
+    hora_reserva VARCHAR(5),
+    cantidad_personas INTEGER,
+    origen VARCHAR(50) DEFAULT 'IVR',
+    estado VARCHAR(50) DEFAULT 'confirmada'
 );";
 
 try {

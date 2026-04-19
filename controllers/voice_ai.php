@@ -14,7 +14,7 @@ echo '<Response>
         method="POST"
         action="https://ivr-3knv.onrender.com/controllers/process_ai.php"
         timeout="5">
-        <Say voice="Polly.Lupe">
+        <Say voice="Polly.Lupe"> 
             Hola, gracias por llamar a By Wifer. Diga su nombre y su reserva completa.
         </Say>
     </Gather>
