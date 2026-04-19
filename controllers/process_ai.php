@@ -4,7 +4,7 @@ ini_set('log_errors', 1);
 error_reporting(E_ALL);
 
 require_once "../config/bd.php";
-require_once "../config/openai.php";
+require_once "../config/openaii.php";
 
 header("Content-Type: text/xml; charset=UTF-8");
 date_default_timezone_set('America/Mexico_City');
@@ -326,13 +326,22 @@ if (empty($nombreNuevo)) {
         $nombreNuevo = trim($texto);
     }
 }
+// =========================
+// DETECTAR FRASE COMPLETA (IA)
+// =========================
+if (!empty($nombreNuevo) && !empty($personasNuevo) && !empty($fechaHoraNueva)) {
+    $nombreFinal = $nombreNuevo;
+    $personasFinal = $personasNuevo;
+    $fechaHoraFinal = $fechaHoraNueva;
+}
 
 // =========================
 // MEZCLAR DATOS
 // =========================
-$nombreFinal    = !empty($nombreAnterior) ? $nombreAnterior : $nombreNuevo;
-$personasFinal  = !empty($personasAnterior) ? $personasAnterior : $personasNuevo;
-$fechaHoraFinal = !empty($fechaHoraAnterior) ? $fechaHoraAnterior : $fechaHoraNueva;
+// 🔥 SIEMPRE priorizar lo nuevo (clave para frases completas)
+$nombreFinal    = !empty($nombreNuevo) ? $nombreNuevo : $nombreAnterior;
+$personasFinal  = !empty($personasNuevo) ? $personasNuevo : $personasAnterior;
+$fechaHoraFinal = !empty($fechaHoraNueva) ? $fechaHoraNueva : $fechaHoraAnterior;
 
 if (empty($nombreFinal) && !empty($nombreNuevo)) {
     $nombreFinal = $nombreNuevo;

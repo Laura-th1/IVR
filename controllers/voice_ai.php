@@ -18,8 +18,6 @@ echo '<Response>
             Hola, gracias por llamar a By Wifer. Diga su nombre y su reserva completa.
         </Say>
     </Gather>
-    <Say voice="Polly.Lupe">
-        No recibí respuesta. Por favor vuelva a llamar.
-    </Say>
+    
 </Response>';
 ?>
