@@ -309,21 +309,32 @@ if (empty($fechaHoraNueva)) {
 if (empty($nombreNuevo)) {
     $textoLimpio = limpiarTexto($texto);
 
-    $frasesNoNombre = [
-        'para', 'persona', 'personas', 'mañana', 'pasado mañana', 'hoy',
-        'a las', 'am', 'pm', 'reserva', 'reservar', 'mesa', 'quiero'
-    ];
-
-    $pareceNombre = true;
-    foreach ($frasesNoNombre as $frase) {
-        if (strpos($textoLimpio, $frase) !== false) {
-            $pareceNombre = false;
-            break;
-        }
+    // Intenta extraer nombre después de "soy" o "a nombre de"
+    if (preg_match('/(?:soy|me llamo|a nombre de)\s+([a-záéíóúñ]+)/ui', $texto, $match)) {
+        $nombreNuevo = trim($match[1]);
     }
+    // Intenta extraer nombre como una palabra capitalizada aislada
+    elseif (preg_match('/\b([A-Z][a-záéíóúñ]+)\b/u', $texto, $match)) {
+        $nombreNuevo = trim($match[1]);
+    }
+    // Fallback: si no contiene frases de reserva, podría ser todo un nombre
+    else {
+        $frasesNoNombre = [
+            'para', 'personas', 'mañana', 'pasado mañana', 'hoy',
+            'a las', 'am', 'pm', 'reserva', 'reservar', 'mesa', 'quiero', 'una', 'el'
+        ];
 
-    if ($pareceNombre && str_word_count($textoLimpio) <= 4) {
-        $nombreNuevo = trim($texto);
+        $pareceNombre = true;
+        foreach ($frasesNoNombre as $frase) {
+            if (strpos($textoLimpio, $frase) !== false) {
+                $pareceNombre = false;
+                break;
+            }
+        }
+
+        if ($pareceNombre && str_word_count($textoLimpio) <= 4) {
+            $nombreNuevo = trim($texto);
+        }
     }
 }
 
