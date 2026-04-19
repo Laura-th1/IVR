@@ -326,37 +326,17 @@ if (empty($nombreNuevo)) {
         $nombreNuevo = trim($texto);
     }
 }
-// =========================
-// DETECTAR FRASE COMPLETA (IA)
-// =========================
-if (!empty($nombreNuevo) && !empty($personasNuevo) && !empty($fechaHoraNueva)) {
-    $nombreFinal = $nombreNuevo;
-    $personasFinal = $personasNuevo;
-    $fechaHoraFinal = $fechaHoraNueva;
-}
 
 // =========================
 // MEZCLAR DATOS
 // =========================
-// 🔥 SIEMPRE priorizar lo nuevo (clave para frases completas)
-$nombreFinal    = !empty($nombreNuevo) ? $nombreNuevo : $nombreAnterior;
-$personasFinal  = !empty($personasNuevo) ? $personasNuevo : $personasAnterior;
-$fechaHoraFinal = !empty($fechaHoraNueva) ? $fechaHoraNueva : $fechaHoraAnterior;
-
-if (empty($nombreFinal) && !empty($nombreNuevo)) {
-    $nombreFinal = $nombreNuevo;
-}
-
-if (empty($personasFinal) && !empty($personasNuevo)) {
-    $personasFinal = $personasNuevo;
-}
-
-if (empty($fechaHoraFinal) && !empty($fechaHoraNueva)) {
-    $fechaHoraFinal = $fechaHoraNueva;
-}
+// Priorizar datos anteriores si existen, luego agregar nuevos
+$nombreFinal    = !empty($nombreAnterior) ? $nombreAnterior : $nombreNuevo;
+$personasFinal  = !empty($personasAnterior) ? $personasAnterior : $personasNuevo;
+$fechaHoraFinal = !empty($fechaHoraAnterior) ? $fechaHoraAnterior : $fechaHoraNueva;
 
 // =========================
-// GUARDAR TEMPORAL
+// GUARDAR TEMPORAL (para mantener contexto)
 // =========================
 $okTemp = guardarReservaTemporal($conn, $telefono, $nombreFinal, $personasFinal, $fechaHoraFinal);
 
@@ -365,14 +345,26 @@ if (!$okTemp) {
 }
 
 // =========================
-// PREGUNTAR LO QUE FALTA (UNA SOLA COSA)
+// SI TIENE TODO COMPLETO → GUARDAR DIRECTAMENTE
 // =========================
-if (empty($nombreFinal)) {
-    preguntarYSalir("Perfecto. ¿A nombre de quién hago la reserva?");
-} elseif (empty($personasFinal)) {
-    preguntarYSalir("¿Para cuántas personas es la reserva?");
-} elseif (empty($fechaHoraFinal)) {
-    preguntarYSalir("¿Para qué día y hora deseas la reserva?");
+if (!empty($nombreFinal) && !empty($personasFinal) && !empty($fechaHoraFinal)) {
+    // Ir directamente a guardar en reservas
+    $skipPreguntas = true;
+} else {
+    $skipPreguntas = false;
+}
+
+if (!$skipPreguntas) {
+    // =========================
+    // PREGUNTAR LO QUE FALTA (UNA SOLA COSA)
+    // =========================
+    if (empty($nombreFinal)) {
+        preguntarYSalir("Perfecto. ¿A nombre de quién hago la reserva?");
+    } elseif (empty($personasFinal)) {
+        preguntarYSalir("¿Para cuántas personas es la reserva?");
+    } elseif (empty($fechaHoraFinal)) {
+        preguntarYSalir("¿Para qué día y hora deseas la reserva?");
+    }
 }
 
 // =========================
