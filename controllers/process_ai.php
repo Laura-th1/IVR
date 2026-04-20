@@ -326,21 +326,22 @@ if (empty($fechaHoraNueva)) {
 if (empty($nombreNuevo)) {
     $textoLimpio = limpiarTexto($texto);
 
-    $frasesNoNombre = [
-        'para', 'persona', 'personas', 'mañana', 'pasado mañana', 'hoy',
-        'a las', 'am', 'pm', 'reserva', 'reservar', 'mesa', 'quiero'
-    ];
-
-    $pareceNombre = true;
-    foreach ($frasesNoNombre as $frase) {
-        if (strpos($textoLimpio, $frase) !== false) {
-            $pareceNombre = false;
-            break;
-        }
+    // ESTRATEGIA 1: Buscar patrones explícitos "soy", "me llamo", "a nombre de"
+    if (preg_match('/(?:soy|me llamo|a nombre de)\s+([a-záéíóúñ]+)/ui', $texto, $match)) {
+        $nombreNuevo = trim($match[1]);
     }
-
-    if ($pareceNombre && str_word_count($textoLimpio) <= 4) {
-        $nombreNuevo = trim($texto);
+    // ESTRATEGIA 2: Buscar nombre entre comas "Hola, Laura, quiero"
+    elseif (preg_match('/,\s*([a-záéíóúñ]+)\s*,/ui', $texto, $match)) {
+        $nombreNuevo = trim($match[1]);
+    }
+    // ESTRATEGIA 3: Buscar palabra capitalizada "Hola Laura quiero" (primera mayúscula)
+    elseif (preg_match('/\b([A-Z][a-záéíóúñ]+)\b/u', $texto, $match)) {
+        // Verificar que no sea una palabra de la oración común
+        $palabraComun = strtolower($match[1]);
+        $palabrasComunes = ['hola', 'quiero', 'quisiera', 'necesito', 'tengo', 'puedo'];
+        if (!in_array($palabraComun, $palabrasComunes)) {
+            $nombreNuevo = trim($match[1]);
+        }
     }
 }
 // =========================
