@@ -1,4 +1,5 @@
 <?php
+
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 error_reporting(E_ALL);
@@ -309,44 +310,51 @@ if (empty($fechaHoraNueva)) {
 if (empty($nombreNuevo)) {
     $textoLimpio = limpiarTexto($texto);
 
-    // Intenta extraer nombre después de "soy" o "a nombre de"
-    if (preg_match('/(?:soy|me llamo|a nombre de)\s+([a-záéíóúñ]+)/ui', $texto, $match)) {
-        $nombreNuevo = trim($match[1]);
-    }
-    // Intenta extraer nombre como una palabra capitalizada aislada
-    elseif (preg_match('/\b([A-Z][a-záéíóúñ]+)\b/u', $texto, $match)) {
-        $nombreNuevo = trim($match[1]);
-    }
-    // Fallback: si no contiene frases de reserva, podría ser todo un nombre
-    else {
-        $frasesNoNombre = [
-            'para', 'personas', 'mañana', 'pasado mañana', 'hoy',
-            'a las', 'am', 'pm', 'reserva', 'reservar', 'mesa', 'quiero', 'una', 'el'
-        ];
+    $frasesNoNombre = [
+        'para', 'persona', 'personas', 'mañana', 'pasado mañana', 'hoy',
+        'a las', 'am', 'pm', 'reserva', 'reservar', 'mesa', 'quiero'
+    ];
 
-        $pareceNombre = true;
-        foreach ($frasesNoNombre as $frase) {
-            if (strpos($textoLimpio, $frase) !== false) {
-                $pareceNombre = false;
-                break;
-            }
-        }
-
-        if ($pareceNombre && str_word_count($textoLimpio) <= 4) {
-            $nombreNuevo = trim($texto);
+    $pareceNombre = true;
+    foreach ($frasesNoNombre as $frase) {
+        if (strpos($textoLimpio, $frase) !== false) {
+            $pareceNombre = false;
+            break;
         }
     }
+
+    if ($pareceNombre && str_word_count($textoLimpio) <= 4) {
+        $nombreNuevo = trim($texto);
+    }
+}
+// =========================
+// DETECTAR FRASE COMPLETA (IA)
+// =========================
+if (!empty($nombreNuevo) && !empty($personasNuevo) && !empty($fechaHoraNueva)) {
+    $nombreFinal = $nombreNuevo;
+    $personasFinal = $personasNuevo;
+    $fechaHoraFinal = $fechaHoraNueva;
 }
 
 // =========================
 // MEZCLAR DATOS
 // =========================
-// Priorizar datos anteriores si existen, luego agregar nuevos
-$nombreFinal    = !empty($nombreAnterior) ? $nombreAnterior : $nombreNuevo;
-$personasFinal  = !empty($personasAnterior) ? $personasAnterior : $personasNuevo;
-$fechaHoraFinal = !empty($fechaHoraAnterior) ? $fechaHoraAnterior : $fechaHoraNueva;
+// 🔥 SIEMPRE priorizar lo nuevo (clave para frases completas)
+$nombreFinal    = !empty($nombreNuevo) ? $nombreNuevo : $nombreAnterior;
+$personasFinal  = !empty($personasNuevo) ? $personasNuevo : $personasAnterior;
+$fechaHoraFinal = !empty($fechaHoraNueva) ? $fechaHoraNueva : $fechaHoraAnterior;
 
-// =========================
+if (empty($nombreFinal) && !empty($nombreNuevo)) {
+    $nombreFinal = $nombreNuevo;
+}
+
+if (empty($personasFinal) && !empty($personasNuevo)) {
+    $personasFinal = $personasNuevo;
+}
+
+if (empty($fechaHoraFinal) && !empty($fechaHoraNueva)) {
+    $fechaHoraFinal = $fechaHoraNueva;
+}
 // GUARDAR TEMPORAL (para mantener contexto)
 // =========================
 $okTemp = guardarReservaTemporal($conn, $telefono, $nombreFinal, $personasFinal, $fechaHoraFinal);
@@ -356,26 +364,13 @@ if (!$okTemp) {
 }
 
 // =========================
-// SI TIENE TODO COMPLETO → GUARDAR DIRECTAMENTE
-// =========================
-if (!empty($nombreFinal) && !empty($personasFinal) && !empty($fechaHoraFinal)) {
-    // Ir directamente a guardar en reservas
-    $skipPreguntas = true;
-} else {
-    $skipPreguntas = false;
-}
-
-if (!$skipPreguntas) {
-    // =========================
-    // PREGUNTAR LO QUE FALTA (UNA SOLA COSA)
-    // =========================
-    if (empty($nombreFinal)) {
-        preguntarYSalir("Perfecto. ¿A nombre de quién hago la reserva?");
-    } elseif (empty($personasFinal)) {
-        preguntarYSalir("¿Para cuántas personas es la reserva?");
-    } elseif (empty($fechaHoraFinal)) {
-        preguntarYSalir("¿Para qué día y hora deseas la reserva?");
-    }
+// PREGUNTAR LO QUE FALTA (UNA SOLA COSA)
+if (empty($nombreFinal)) {
+    preguntarYSalir("Perfecto. ¿A nombre de quién hago la reserva?");
+} elseif (empty($personasFinal)) {
+    preguntarYSalir("¿Para cuántas personas es la reserva?");
+} elseif (empty($fechaHoraFinal)) {
+    preguntarYSalir("¿Para qué día y hora deseas la reserva?");
 }
 
 // =========================
