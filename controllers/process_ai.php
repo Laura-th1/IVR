@@ -383,8 +383,24 @@ try {
     $stmtCliente->execute([$telefono]);
     $cliente = $stmtCliente->fetch(PDO::FETCH_ASSOC);
 
+    // Si no existe cliente, crear uno automáticamente
     if (!$cliente) {
-        responderYSalir("No encontramos tu registro en el sistema. Por favor contacta a soporte.");
+        $queryInsertCliente = "INSERT INTO clientes (nombre, telefono) VALUES (?, ?)";
+        $stmtInsertCliente = $conn->prepare($queryInsertCliente);
+        
+        // Usar nombreFinal si existe, si no usar "Cliente" + teléfono
+        $nombreCliente = !empty($nombreFinal) ? $nombreFinal : "Cliente IVR";
+        
+        $resultInsert = $stmtInsertCliente->execute([$nombreCliente, $telefono]);
+        
+        if (!$resultInsert) {
+            responderYSalir("Hubo un error al registrar tu información. Por favor intenta más tarde.");
+        }
+        
+        // Obtener el id_cliente del cliente recién creado
+        $stmtCliente = $conn->prepare($queryCliente);
+        $stmtCliente->execute([$telefono]);
+        $cliente = $stmtCliente->fetch(PDO::FETCH_ASSOC);
     }
 
     $idCliente = $cliente['id_cliente'];
