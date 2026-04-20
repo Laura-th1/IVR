@@ -84,22 +84,38 @@ function convertirNumero($texto) {
         "veinte" => 20
     ];
 
+    // PRIMERO: Buscar número después de palabras clave de personas
+    if (preg_match('/(?:para|de)\s+(\d+|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|dieciséis|diecisiete|dieciocho|diecinueve|veinte)\s+(?:personas|pax|person)/ui', $texto, $match)) {
+        $numero = strtolower($match[1]);
+        return is_numeric($numero) ? intval($numero) : ($map[$numero] ?? null);
+    }
+
+    // SEGUNDO: Si ya es un número directo
     if (is_numeric($texto)) {
         return intval($texto);
     }
 
+    // TERCERO: Buscar palabra número
     foreach ($map as $palabra => $numero) {
         if (strpos($texto, $palabra) !== false) {
             return $numero;
         }
     }
 
-    if (preg_match('/\b(\d+)\b/u', $texto, $match)) {
+    // CUARTO: Buscar números dentro del texto (evitar horas)
+    if (preg_match('/para\s+(\d+)|(\d+)\s+personas/i', $texto, $match)) {
+        $numero = $match[1] ?? $match[2];
+        return intval($numero);
+    }
+
+    // FALLBACK: último recurso - buscar el primer número (pero NO después de "las")
+    if (preg_match('/(?<!las\s)(?<!a\s)(?<!\s)(\d+)(?!\s*(?:am|pm|de la))/u', $texto, $match)) {
         return intval($match[1]);
     }
 
     return null;
 }
+
 
 function normalizarHora($hora, $minutos = "00", $periodo = "") {
     $hora = intval($hora);
