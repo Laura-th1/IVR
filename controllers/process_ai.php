@@ -308,7 +308,11 @@ if (is_array($resultadoIA) && !empty($resultadoIA["ok"])) {
     $nombreNuevo = trim($data["nombre"] ?? "");
 
     if (!empty($data["personas"])) {
-        $personasNuevo = convertirNumero((string)$data["personas"]);
+        if ($idioma === 'en') {
+            $personasNuevo = convertirNumeroIngles((string)$data["personas"]);
+        } else {
+            $personasNuevo = convertirNumero((string)$data["personas"]);
+        }
     }
 
     $fechaHoraNueva = trim($data["fecha_hora"] ?? "");

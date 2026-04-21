@@ -114,21 +114,33 @@ function convertirNumeroIngles($texto) {
     
     $texto = strtolower(trim($texto));
 
-    // Si ya es un número directo
+    // 1. Si ya es un número directo: "5" → 5
     if (is_numeric($texto)) {
         $num = intval($texto);
         return ($num > 0 && $num <= 20) ? $num : null;
     }
 
-    // Buscar "for X people", "for X person", etc.
-    if (preg_match('/for\s+(\d+)\s+(?:people|person|persons|pax)/i', $texto, $match)) {
+    // 2. Buscar "for X people", "for X person", " X people", " X persons", etc.
+    // Esto debe ser lo PRIMERO porque es muy específico
+    if (preg_match('/(\d+)\s+(?:people|person|persons|pax)/i', $texto, $match)) {
         return intval($match[1]);
     }
 
-    // Buscar palabra número directa: "one", "two", etc.
+    // 3. Buscar palabra número: "one people", "five persons", etc.
     foreach ($numerosIngles as $palabra => $numero) {
-        if (preg_match('/\b' . preg_quote($palabra) . '\b/i', $texto)) {
+        // Buscar la palabra rodeada de espacios o límites de palabra
+        if (preg_match('/\b' . preg_quote($palabra) . '\b\s+(?:people|person|persons|pax)/i', $texto)) {
             return $numero;
+        }
+    }
+
+    // 4. Último recurso: buscar cualquier número (pero NO horas)
+    // Evitar si está cerca de "am", "pm", ":"
+    if (!preg_match('/(\d+)\s*(?:am|pm|:|o\'clock)/i', $texto) && preg_match('/\b(\d+)\b/', $texto, $match)) {
+        $num = intval($match[1]);
+        // Evitar números que parezcan horas (después de "at" o "las")
+        if (!preg_match('/at\s+\d+|las\s+\d+/', $texto)) {
+            return ($num > 0 && $num <= 20) ? $num : null;
         }
     }
 
