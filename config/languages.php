@@ -112,42 +112,48 @@ function obtenerMensaje($idioma, $clave, $reemplazos = []) {
 function convertirNumeroIngles($texto) {
     global $numerosIngles;
     
-    $texto = strtolower($texto);
+    $texto = strtolower(trim($texto));
 
-    // PRIMERO: Buscar número después de palabras clave en inglés
-    if (preg_match('/(?:for|of)\s+(\d+|zero|one|a|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty)\s+(?:people|persons|pax)/ui', $texto, $match)) {
-        $numero = strtolower($match[1]);
-        return is_numeric($numero) ? intval($numero) : ($numerosIngles[$numero] ?? null);
-    }
-
-    // SEGUNDO: Si ya es un número directo
+    // Si ya es un número directo
     if (is_numeric($texto)) {
-        return intval($texto);
+        $num = intval($texto);
+        return ($num > 0 && $num <= 20) ? $num : null;
     }
 
-    // TERCERO: Buscar palabra número en inglés
+    // Buscar "for X people", "for X person", etc.
+    if (preg_match('/for\s+(\d+)\s+(?:people|person|persons|pax)/i', $texto, $match)) {
+        return intval($match[1]);
+    }
+
+    // Buscar palabra número directa: "one", "two", etc.
     foreach ($numerosIngles as $palabra => $numero) {
-        if (strpos($texto, $palabra) !== false) {
+        if (preg_match('/\b' . preg_quote($palabra) . '\b/i', $texto)) {
             return $numero;
         }
-    }
-
-    // CUARTO: Buscar números dentro del texto (evitar horas)
-    if (preg_match('/for\s+(\d+)|(\d+)\s+people/i', $texto, $match)) {
-        $numero = $match[1] ?? $match[2];
-        return intval($numero);
     }
 
     return null;
 }
 
+function extraerNombreIngles($texto) {
+    // Patrón: "I'm John", "I am Sarah", "name is Mike"
+    if (preg_match('/(?:I\'m|I am|my name is)\s+([A-Za-z]+)/i', $texto, $match)) {
+        $nombre = trim($match[1]);
+        if (strlen($nombre) > 2) { // Evitar nombres muy cortos
+            return $nombre;
+        }
+    }
+    
+    return "";
+}
+
 function extraerHoraTextoIngles($texto) {
     $texto = strtolower($texto);
 
-    // Formato: "3:30 pm", "7:45 am"
+    // Formato: "3:30 pm", "7:45 am", "3 pm", "7 am"
     if (preg_match('/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i', $texto, $match)) {
         $hora = intval($match[1]);
-        $minutos = $match[2] ?? '00';
+        $minutos = isset($match[2]) ? intval($match[2]) : 0;
         $periodo = strtolower($match[3]);
 
         if ($periodo === 'pm' && $hora !== 12) {
@@ -156,16 +162,7 @@ function extraerHoraTextoIngles($texto) {
             $hora = 0;
         }
 
-        return sprintf('%02d:%02d', $hora, intval($minutos));
-    }
-
-    // Formato: "7 in the evening", "6 in the afternoon"
-    if (preg_match('/\b(\d{1,2})\b\s+(?:in the\s+)?(?:morning|afternoon|evening|night)\b/i', $texto, $match)) {
-        $hora = intval($match[1]);
-        if ($hora < 12 && preg_match('/afternoon|evening|night/i', $texto)) {
-            $hora += 12;
-        }
-        return sprintf('%02d:%02d', $hora, 0);
+        return sprintf('%02d:%02d', $hora, $minutos);
     }
 
     return null;

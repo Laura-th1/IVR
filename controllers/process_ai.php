@@ -340,23 +340,39 @@ if (empty($fechaHoraNueva)) {
 }
 
 if (empty($nombreNuevo)) {
-    $textoLimpio = limpiarTexto($texto);
+    if ($idioma === 'en') {
+        // Extracción para inglés
+        $nombreNuevo = extraerNombreIngles($texto);
+        
+        // Si no encuentra por patrón explícito, intenta buscar palabra capitalizada
+        if (empty($nombreNuevo)) {
+            if (preg_match('/\b([A-Z][a-z]+)\b/', $texto, $match)) {
+                $nombre = trim($match[1]);
+                $nombresComunes = ['I', 'Hi', 'Hello', 'Want', 'Need', 'Book', 'Make', 'For'];
+                if (!in_array($nombre, $nombresComunes) && strlen($nombre) > 2) {
+                    $nombreNuevo = $nombre;
+                }
+            }
+        }
+    } else {
+        // Extracción para español
+        $textoLimpio = limpiarTexto($texto);
 
-    // ESTRATEGIA 1: Buscar patrones explícitos "soy", "me llamo", "a nombre de"
-    if (preg_match('/(?:soy|me llamo|a nombre de)\s+([a-záéíóúñ]+)/ui', $texto, $match)) {
-        $nombreNuevo = trim($match[1]);
-    }
-    // ESTRATEGIA 2: Buscar nombre entre comas "Hola, Laura, quiero"
-    elseif (preg_match('/,\s*([a-záéíóúñ]+)\s*,/ui', $texto, $match)) {
-        $nombreNuevo = trim($match[1]);
-    }
-    // ESTRATEGIA 3: Buscar palabra capitalizada "Hola Laura quiero" (primera mayúscula)
-    elseif (preg_match('/\b([A-Z][a-záéíóúñ]+)\b/u', $texto, $match)) {
-        // Verificar que no sea una palabra de la oración común
-        $palabraComun = strtolower($match[1]);
-        $palabrasComunes = ['hola', 'quiero', 'quisiera', 'necesito', 'tengo', 'puedo'];
-        if (!in_array($palabraComun, $palabrasComunes)) {
+        // ESTRATEGIA 1: Buscar patrones explícitos "soy", "me llamo", "a nombre de"
+        if (preg_match('/(?:soy|me llamo|a nombre de)\s+([a-záéíóúñ]+)/ui', $texto, $match)) {
             $nombreNuevo = trim($match[1]);
+        }
+        // ESTRATEGIA 2: Buscar nombre entre comas "Hola, Laura, quiero"
+        elseif (preg_match('/,\s*([a-záéíóúñ]+)\s*,/ui', $texto, $match)) {
+            $nombreNuevo = trim($match[1]);
+        }
+        // ESTRATEGIA 3: Buscar palabra capitalizada "Hola Laura quiero" (primera mayúscula)
+        elseif (preg_match('/\b([A-Z][a-záéíóúñ]+)\b/u', $texto, $match)) {
+            $palabraComun = strtolower($match[1]);
+            $palabrasComunes = ['hola', 'quiero', 'quisiera', 'necesito', 'tengo', 'puedo'];
+            if (!in_array($palabraComun, $palabrasComunes) && strlen($palabraComun) > 2) {
+                $nombreNuevo = trim($match[1]);
+            }
         }
     }
 }
