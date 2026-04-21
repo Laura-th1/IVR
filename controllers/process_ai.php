@@ -1,11 +1,11 @@
 <?php
-
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 error_reporting(E_ALL);
 
 require_once "../config/bd.php";
 require_once "../config/openaii.php";
+require_once "../config/languages.php";
 
 header("Content-Type: text/xml; charset=UTF-8");
 date_default_timezone_set('America/Mexico_City');
@@ -17,11 +17,17 @@ $telefono = trim($_POST['From'] ?? '');
 $texto    = trim($_POST['SpeechResult'] ?? '');
 
 // =========================
+// DETECTAR IDIOMA
+// =========================
+$idioma = detectarIdioma($texto); // 'es' o 'en'
+
+// =========================
 // LOG DEBUG
 // =========================
 @file_put_contents(
     __DIR__ . "/log_ai.txt",
     "Fecha: " . date('Y-m-d H:i:s') . "\n" .
+    "Idioma: $idioma\n" .
     "POST: " . print_r($_POST, true) . "\n" .
     "-----------------------------------\n",
     FILE_APPEND
@@ -37,18 +43,20 @@ function responderYSalir($mensaje) {
     exit;
 }
 
-function preguntarYSalir($mensaje) {
+function preguntarYSalir($mensaje, $idioma = 'es') {
     $mensajeSeguro = htmlspecialchars($mensaje, ENT_QUOTES, 'UTF-8');
+    $lenguaje = ($idioma === 'en') ? 'en-US' : 'es-ES';
+    
     echo '<Gather
             input="speech"
-            language="es-ES"
+            language="' . $lenguaje . '"
             speechTimeout="auto"
             method="POST"
             action="https://ivr-3knv.onrender.com/controllers/process_ai.php"
             timeout="5">';
     echo '<Say voice="Polly.Lupe">' . $mensajeSeguro . '</Say>';
     echo '</Gather>';
-    echo '<Say voice="Polly.Lupe">No entendí su respuesta.</Say>';
+    echo '<Say voice="Polly.Lupe">' . ($idioma === 'en' ? 'I did not understand your response.' : 'No entendí su respuesta.') . '</Say>';
     echo "</Response>";
     exit;
 }
@@ -261,15 +269,15 @@ function borrarReservaTemporal($conn, $telefono) {
 // VALIDACIONES BÁSICAS
 // =========================
 if (!$conn) {
-    responderYSalir("Error de conexión con la base de datos.");
+    responderYSalir(obtenerMensaje($idioma, 'error_conexion'));
 }
 
 if (empty($telefono)) {
-    responderYSalir("No se pudo identificar el número de teléfono.");
+    responderYSalir(obtenerMensaje($idioma, 'error_telefono'));
 }
 
 if (empty($texto)) {
-    preguntarYSalir("No entendí. Por favor repite tu reserva.");
+    preguntarYSalir(obtenerMensaje($idioma, 'error_sin_respuesta'), $idioma);
 }
 
 // =========================
@@ -310,14 +318,22 @@ if (is_array($resultadoIA) && !empty($resultadoIA["ok"])) {
 // FALLBACKS MANUALES
 // =========================
 if (!$personasNuevo) {
-    $personasManual = convertirNumero($texto);
+    if ($idioma === 'en') {
+        $personasManual = convertirNumeroIngles($texto);
+    } else {
+        $personasManual = convertirNumero($texto);
+    }
     if ($personasManual) {
         $personasNuevo = $personasManual;
     }
 }
 
 if (empty($fechaHoraNueva)) {
-    $fechaManual = parseFechaHoraManual($texto);
+    if ($idioma === 'en') {
+        $fechaManual = parseFechaHoraManualIngles($texto);
+    } else {
+        $fechaManual = parseFechaHoraManual($texto);
+    }
     if (!empty($fechaManual)) {
         $fechaHoraNueva = $fechaManual;
     }
@@ -377,17 +393,18 @@ if (empty($fechaHoraFinal) && !empty($fechaHoraNueva)) {
 $okTemp = guardarReservaTemporal($conn, $telefono, $nombreFinal, $personasFinal, $fechaHoraFinal);
 
 if (!$okTemp) {
-    responderYSalir("Hubo un error guardando la información temporal de la reserva.");
+    responderYSalir(obtenerMensaje($idioma, 'error_guardar_temp'));
 }
 
 // =========================
 // PREGUNTAR LO QUE FALTA (UNA SOLA COSA)
+// =========================
 if (empty($nombreFinal)) {
-    preguntarYSalir("Perfecto. ¿A nombre de quién hago la reserva?");
+    preguntarYSalir(obtenerMensaje($idioma, 'pregunta_nombre'), $idioma);
 } elseif (empty($personasFinal)) {
-    preguntarYSalir("¿Para cuántas personas es la reserva?");
+    preguntarYSalir(obtenerMensaje($idioma, 'pregunta_personas'), $idioma);
 } elseif (empty($fechaHoraFinal)) {
-    preguntarYSalir("¿Para qué día y hora deseas la reserva?");
+    preguntarYSalir(obtenerMensaje($idioma, 'pregunta_fecha'), $idioma);
 }
 
 // =========================
@@ -411,7 +428,7 @@ try {
         $resultInsert = $stmtInsertCliente->execute([$nombreCliente, $telefono]);
         
         if (!$resultInsert) {
-            responderYSalir("Hubo un error al registrar tu información. Por favor intenta más tarde.");
+            responderYSalir(obtenerMensaje($idioma, 'error_registro_cliente'));
         }
         
         // Obtener el id_cliente del cliente recién creado
@@ -454,11 +471,11 @@ try {
     ]);
 
     if (!$resultFinal) {
-        responderYSalir("Entendí la reserva, pero hubo un error al guardarla.");
+        responderYSalir(obtenerMensaje($idioma, 'error_guardar_final'));
     }
 } catch (Exception $e) {
     error_log("Error guardando reserva final: " . $e->getMessage());
-    responderYSalir("Entendí la reserva, pero hubo un error al guardarla.");
+    responderYSalir(obtenerMensaje($idioma, 'error_guardar_final'));
 }
 
 // =========================
@@ -495,6 +512,13 @@ $nombreSeguro = htmlspecialchars($nombreFinal, ENT_QUOTES, 'UTF-8');
 $fechaSeguro  = htmlspecialchars($fechaReserva, ENT_QUOTES, 'UTF-8');
 $horaSegura   = htmlspecialchars($horaParte, ENT_QUOTES, 'UTF-8');
 
-echo "<Say voice='Polly.Lupe'>Perfecto {$nombreSeguro}. Tu reserva para {$personasFinal} personas el {$fechaSeguro} a las {$horaSegura} ha sido confirmada. Gracias por llamar a By Wifer.</Say>";
+$mensajeConfirmacion = obtenerMensaje($idioma, 'confirmacion', [
+    'nombre' => $nombreSeguro,
+    'personas' => $personasFinal,
+    'fecha' => $fechaSeguro,
+    'hora' => $horaSegura
+]);
+
+echo "<Say voice='Polly.Lupe'>" . $mensajeConfirmacion . "</Say>";
 echo "</Response>";
 ?>
