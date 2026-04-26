@@ -1,18 +1,21 @@
 <?php
 
-require_once "./config/bd.php";
+require_once __DIR__ . "/config/bd.php";
 
 try {
     $query = "
-    SELECT 
-        telefono,
-        MAX(CASE WHEN pregunta = 'Name' THEN respuesta END) as nombre,
-        MAX(CASE WHEN pregunta = 'People' THEN respuesta END) as personas,
-        MAX(CASE WHEN pregunta = 'Date' THEN respuesta END) as fecha_reserva,
-        MAX(CASE WHEN pregunta = 'Time' THEN respuesta END) as hora_reserva
-    FROM respuestas
-    GROUP BY telefono
-    ORDER BY MAX(fecha) DESC
+    SELECT
+        r.id_reserva,
+        c.telefono,
+        COALESCE(c.nombre, 'Sin nombre') AS nombre,
+        r.cantidad_personas AS personas,
+        r.fecha_reserva,
+        r.hora_reserva,
+        r.origen,
+        r.estado
+    FROM reservas r
+    LEFT JOIN clientes c ON r.id_cliente = c.id_cliente
+    ORDER BY r.fecha_reserva DESC, r.hora_reserva DESC
     ";
 
     $stmt = $conn->prepare($query);

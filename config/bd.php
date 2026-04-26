@@ -10,5 +10,7 @@ try {
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (PDOException $e) {
     echo "Error de conexión: " . $e->getMessage();
+    echo "<br>Host=$host port=$port dbname=$db user=$user";
 }
+
 ?>
