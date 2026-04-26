@@ -6,9 +6,10 @@ try {
     $query = "
     SELECT 
         telefono,
-        MAX(CASE WHEN pregunta = 'Nombre' THEN respuesta END) as nombre,
-        MAX(CASE WHEN pregunta = 'Personas' THEN respuesta END) as personas,
-        MAX(CASE WHEN pregunta = 'FechaHora' THEN respuesta END) as fecha_hora
+        MAX(CASE WHEN pregunta = 'Name' THEN respuesta END) as nombre,
+        MAX(CASE WHEN pregunta = 'People' THEN respuesta END) as personas,
+        MAX(CASE WHEN pregunta = 'Date' THEN respuesta END) as fecha_reserva,
+        MAX(CASE WHEN pregunta = 'Time' THEN respuesta END) as hora_reserva
     FROM respuestas
     GROUP BY telefono
     ORDER BY MAX(fecha) DESC
@@ -43,7 +44,8 @@ try {
         <th>Teléfono</th>
         <th>Nombre</th>
         <th>Personas</th>
-        <th>Fecha y Hora</th>
+        <th>Fecha</th>
+        <th>Hora</th>
     </tr>
 
     <?php foreach ($rows as $row) { ?>
@@ -51,7 +53,8 @@ try {
             <td><?= htmlspecialchars($row['telefono'] ?? '') ?></td>
             <td><?= htmlspecialchars($row['nombre'] ?? '') ?></td>
             <td><?= htmlspecialchars($row['personas'] ?? '') ?></td>
-            <td><?= htmlspecialchars($row['fecha_hora'] ?? '') ?></td>
+            <td><?= htmlspecialchars($row['fecha_reserva'] ?? '') ?></td>
+            <td><?= htmlspecialchars($row['hora_reserva'] ?? '') ?></td>
         </tr>
     <?php } ?>
 
