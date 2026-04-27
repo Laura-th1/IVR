@@ -103,9 +103,9 @@ function convertirNumero($texto) {
         return intval($texto);
     }
 
-    // TERCERO: Buscar palabra número
+    // TERCERO: Buscar palabra número con límites de palabra
     foreach ($map as $palabra => $numero) {
-        if (strpos($texto, $palabra) !== false) {
+        if (preg_match('/\b' . preg_quote($palabra, '/') . '\b/u', $texto)) {
             return $numero;
         }
     }
@@ -370,7 +370,7 @@ if (empty($nombreNuevo)) {
     } else {
         // Extracción para español
         $textoLimpio = limpiarTexto($texto);
-        $palabrasComunes = ['hola', 'quiero', 'quisiera', 'necesito', 'tengo', 'puedo', 'reserva', 'reservar', 'personas', 'mesa', 'para', 'a', 'de', 'con'];
+        $palabrasComunes = ['hola', 'quiero', 'quisiera', 'necesito', 'tengo', 'puedo', 'reserva', 'reservar', 'personas', 'mesa', 'para', 'a', 'de', 'con', 'mañana', 'hoy', 'pasado', 'tarde', 'noche', 'madrugada'];
 
         // ESTRATEGIA 1: Buscar patrones explícitos "soy", "me llamo", "a nombre de"
         if (preg_match('/(?:soy|me llamo|a nombre de)\s+([a-záéíóúñ]+)/ui', $texto, $match)) {
