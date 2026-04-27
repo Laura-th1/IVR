@@ -295,6 +295,7 @@ $fechaHoraAnterior = trim($temp["fecha_hora"] ?? "");
 $nombreNuevo    = "";
 $personasNuevo  = null;
 $fechaHoraNueva = "";
+$respuestaPersonas = false;
 
 $resultadoIA = null;
 
@@ -313,6 +314,9 @@ if (is_array($resultadoIA) && !empty($resultadoIA["ok"])) {
         } else {
             $personasNuevo = convertirNumero((string)$data["personas"]);
         }
+        if ($personasNuevo !== null) {
+            $respuestaPersonas = true;
+        }
     }
 
     $fechaHoraNueva = trim($data["fecha_hora"] ?? "");
@@ -329,6 +333,7 @@ if ($personasNuevo === null) {
     }
     if ($personasManual !== null) {
         $personasNuevo = $personasManual;
+        $respuestaPersonas = true;
     }
 }
 
@@ -343,7 +348,7 @@ if (empty($fechaHoraNueva)) {
     }
 }
 
-if (empty($nombreNuevo)) {
+if (empty($nombreNuevo) && !$respuestaPersonas) {
     if ($idioma === 'en') {
         // Extracción para inglés
         $nombreNuevo = extraerNombreIngles($texto);
