@@ -120,15 +120,18 @@ function convertirNumeroIngles($texto) {
         return ($num > 0 && $num <= 20) ? $num : null;
     }
 
-    // 2. Buscar "for X people", "for X person", " X people", " X persons", etc.
-    // Esto debe ser lo PRIMERO porque es muy específico
+    // 2. Si el texto es solo una palabra número: "one", "five"
+    if (preg_match('/^\s*(' . implode('|', array_map('preg_quote', array_keys($numerosIngles))) . ')\s*$/i', $texto, $match)) {
+        return $numerosIngles[strtolower($match[1])] ?? null;
+    }
+
+    // 3. Buscar "for X people", "for X person", " X people", " X persons", etc.
     if (preg_match('/(\d+)\s+(?:people|person|persons|pax)/i', $texto, $match)) {
         return intval($match[1]);
     }
 
-    // 3. Buscar palabra número: "one people", "five persons", etc.
+    // 4. Buscar palabra número: "one people", "five persons", etc.
     foreach ($numerosIngles as $palabra => $numero) {
-        // Buscar la palabra rodeada de espacios o límites de palabra
         if (preg_match('/\b' . preg_quote($palabra) . '\b\s+(?:people|person|persons|pax)/i', $texto)) {
             return $numero;
         }

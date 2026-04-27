@@ -92,22 +92,22 @@ function convertirNumero($texto) {
         "veinte" => 20
     ];
 
-    // PRIMERO: Buscar número después de palabras clave de personas
-    if (preg_match('/(?:para|de)\s+(\d+|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|dieciséis|diecisiete|dieciocho|diecinueve|veinte)\s+(?:personas|pax|person)/ui', $texto, $match)) {
+    // PRIMERO: Buscar número explícito en contexto de personas
+    if (preg_match('/(?:para\s+)?(\d+|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|dieciséis|diecisiete|dieciocho|diecinueve|veinte)\s+(?:personas|pax|person)/ui', $texto, $match)) {
         $numero = strtolower($match[1]);
         return is_numeric($numero) ? intval($numero) : ($map[$numero] ?? null);
     }
 
-    // SEGUNDO: Si ya es un número directo
-    if (is_numeric($texto)) {
-        return intval($texto);
+    // SEGUNDO: Si ya es un número directo o palabra número sola
+    if (preg_match('/^\s*(\d+|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|dieciséis|diecisiete|dieciocho|diecinueve|veinte)\s*$/ui', $texto, $match)) {
+        $numero = strtolower($match[1]);
+        return is_numeric($numero) ? intval($numero) : ($map[$numero] ?? null);
     }
 
-    // TERCERO: Buscar palabra número con límites de palabra
-    foreach ($map as $palabra => $numero) {
-        if (preg_match('/\b' . preg_quote($palabra, '/') . '\b/u', $texto)) {
-            return $numero;
-        }
+    // TERCERO: Buscar número dentro de una frase solo si está claramente ligado a personas
+    if (preg_match('/\b(uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|dieciséis|diecisiete|dieciocho|diecinueve|veinte|\d+)\b\s*(?:personas|pax|person)/ui', $texto, $match)) {
+        $numero = strtolower($match[1]);
+        return is_numeric($numero) ? intval($numero) : ($map[$numero] ?? null);
     }
 
     // CUARTO: Buscar números dentro del texto (evitar horas)
