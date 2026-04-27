@@ -286,7 +286,7 @@ if (empty($texto)) {
 $temp = obtenerReservaTemporal($conn, $telefono);
 
 $nombreAnterior    = trim($temp["nombre"] ?? "");
-$personasAnterior  = !empty($temp["personas"]) ? intval($temp["personas"]) : null;
+$personasAnterior  = isset($temp["personas"]) && $temp["personas"] !== '' ? intval($temp["personas"]) : null;
 $fechaHoraAnterior = trim($temp["fecha_hora"] ?? "");
 
 // =========================
@@ -307,7 +307,7 @@ if (is_array($resultadoIA) && !empty($resultadoIA["ok"])) {
 
     $nombreNuevo = trim($data["nombre"] ?? "");
 
-    if (!empty($data["personas"])) {
+    if (isset($data["personas"]) && $data["personas"] !== '') {
         if ($idioma === 'en') {
             $personasNuevo = convertirNumeroIngles((string)$data["personas"]);
         } else {
@@ -321,13 +321,13 @@ if (is_array($resultadoIA) && !empty($resultadoIA["ok"])) {
 // =========================
 // FALLBACKS MANUALES
 // =========================
-if (!$personasNuevo) {
+if ($personasNuevo === null) {
     if ($idioma === 'en') {
         $personasManual = convertirNumeroIngles($texto);
     } else {
         $personasManual = convertirNumero($texto);
     }
-    if ($personasManual) {
+    if ($personasManual !== null) {
         $personasNuevo = $personasManual;
     }
 }
@@ -348,6 +348,15 @@ if (empty($nombreNuevo)) {
         // Extracción para inglés
         $nombreNuevo = extraerNombreIngles($texto);
         
+        // ESTRATEGIA 2: Si la respuesta es sólo un nombre corto
+        if (empty($nombreNuevo) && preg_match('/^\s*([A-Za-z]+(?:\s+[A-Za-z]+)?)\s*$/', $texto, $match)) {
+            $posibleNombre = trim($match[1]);
+            $nombresComunes = ['I', 'Hi', 'Hello', 'Want', 'Need', 'Book', 'Make', 'For', 'Reservation', 'Table', 'People'];
+            if (!in_array($posibleNombre, $nombresComunes, true) && strlen($posibleNombre) > 2) {
+                $nombreNuevo = ucwords(strtolower($posibleNombre));
+            }
+        }
+
         // Si no encuentra por patrón explícito, intenta buscar palabra capitalizada
         if (empty($nombreNuevo)) {
             if (preg_match('/\b([A-Z][a-z]+)\b/', $texto, $match)) {
@@ -361,6 +370,7 @@ if (empty($nombreNuevo)) {
     } else {
         // Extracción para español
         $textoLimpio = limpiarTexto($texto);
+        $palabrasComunes = ['hola', 'quiero', 'quisiera', 'necesito', 'tengo', 'puedo', 'reserva', 'reservar', 'personas', 'mesa', 'para', 'a', 'de', 'con'];
 
         // ESTRATEGIA 1: Buscar patrones explícitos "soy", "me llamo", "a nombre de"
         if (preg_match('/(?:soy|me llamo|a nombre de)\s+([a-záéíóúñ]+)/ui', $texto, $match)) {
@@ -370,11 +380,18 @@ if (empty($nombreNuevo)) {
         elseif (preg_match('/,\s*([a-záéíóúñ]+)\s*,/ui', $texto, $match)) {
             $nombreNuevo = trim($match[1]);
         }
-        // ESTRATEGIA 3: Buscar palabra capitalizada "Hola Laura quiero" (primera mayúscula)
+        // ESTRATEGIA 3: Si la respuesta es sólo un nombre o dos palabras de nombre
+        elseif (preg_match('/^\s*([a-záéíóúñ]+(?:\s+[a-záéíóúñ]+)?)\s*$/ui', $texto, $match)) {
+            $posibleNombre = trim($match[1]);
+            $nombreMinusculas = strtolower($posibleNombre);
+            if (!in_array($nombreMinusculas, $palabrasComunes, true) && strlen($nombreMinusculas) > 2) {
+                $nombreNuevo = ucwords($nombreMinusculas);
+            }
+        }
+        // ESTRATEGIA 4: Buscar palabra capitalizada "Hola Laura quiero" (primera mayúscula)
         elseif (preg_match('/\b([A-Z][a-záéíóúñ]+)\b/u', $texto, $match)) {
             $palabraComun = strtolower($match[1]);
-            $palabrasComunes = ['hola', 'quiero', 'quisiera', 'necesito', 'tengo', 'puedo'];
-            if (!in_array($palabraComun, $palabrasComunes) && strlen($palabraComun) > 2) {
+            if (!in_array($palabraComun, $palabrasComunes, true) && strlen($palabraComun) > 2) {
                 $nombreNuevo = trim($match[1]);
             }
         }
@@ -394,14 +411,14 @@ if (!empty($nombreNuevo) && !empty($personasNuevo) && !empty($fechaHoraNueva)) {
 // =========================
 // 🔥 SIEMPRE priorizar lo nuevo (clave para frases completas)
 $nombreFinal    = !empty($nombreNuevo) ? $nombreNuevo : $nombreAnterior;
-$personasFinal  = !empty($personasNuevo) ? $personasNuevo : $personasAnterior;
+$personasFinal  = $personasNuevo !== null ? $personasNuevo : $personasAnterior;
 $fechaHoraFinal = !empty($fechaHoraNueva) ? $fechaHoraNueva : $fechaHoraAnterior;
 
 if (empty($nombreFinal) && !empty($nombreNuevo)) {
     $nombreFinal = $nombreNuevo;
 }
 
-if (empty($personasFinal) && !empty($personasNuevo)) {
+if ($personasFinal === null && $personasNuevo !== null) {
     $personasFinal = $personasNuevo;
 }
 
@@ -421,7 +438,7 @@ if (!$okTemp) {
 // =========================
 if (empty($nombreFinal)) {
     preguntarYSalir(obtenerMensaje($idioma, 'pregunta_nombre'), $idioma);
-} elseif (empty($personasFinal)) {
+} elseif ($personasFinal === null) {
     preguntarYSalir(obtenerMensaje($idioma, 'pregunta_personas'), $idioma);
 } elseif (empty($fechaHoraFinal)) {
     preguntarYSalir(obtenerMensaje($idioma, 'pregunta_fecha'), $idioma);
